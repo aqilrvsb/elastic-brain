@@ -90,7 +90,7 @@ app.get('/tools/list/:staffId?', async (req, res) => {
       totalTools: brainTools.length,
       toolsByCategory,
       allToolNames: brainTools.map(t => t.name),
-      httpStreamEndpoint: `/stream/${staffId}`,
+      httpStreamEndpoint: `/mcp/${staffId}`,
       httpPostEndpoint: `/mcp/${staffId}`,
       websocketEndpoint: `/ws/${staffId}`,
       testExample: {
@@ -297,11 +297,42 @@ app.post('/stream/:staffId?', async (req, res) => {
   }
 });
 
-// Direct MCP endpoint for staff - NO AUTH NEEDED (matches working Facebook MCP pattern)
+// Direct MCP endpoint for staff - MAIN ENDPOINT FOR N8N (matches working Facebook pattern)
+app.get('/mcp/:staffId', async (req, res) => {
+  // n8n MCP Client first tries GET request for SSE stream
+  const staffId = req.params.staffId;
+  
+  // Set headers for SSE (Server-Sent Events) - EXACT PATTERN FROM WORKING VERSION
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Cache-Control'
+  });
+
+  // Send initial connection message - EXACT FORMAT FROM WORKING VERSION
+  res.write(`data: {"type":"connection","status":"connected","message":"Brain MCP Server stream ready","staffId":"${staffId || 'none'}"}\n\n`);
+
+  // Keep connection alive with periodic heartbeat - EXACT PATTERN FROM WORKING VERSION
+  const heartbeat = setInterval(() => {
+    res.write('data: {"type":"heartbeat","timestamp":"' + new Date().toISOString() + '"}\n\n');
+  }, 30000); // Every 30 seconds
+
+  // Clean up on client disconnect - EXACT PATTERN FROM WORKING VERSION
+  req.on('close', () => {
+    clearInterval(heartbeat);
+  });
+
+  req.on('aborted', () => {
+    clearInterval(heartbeat);
+  });
+});
+
 app.post('/mcp/:staffId', async (req, res) => {
   try {
     const { staffId } = req.params;
-    const { method, params } = req.body;
+    const { method, params, jsonrpc, id } = req.body;
 
     if (!staffId || staffId === 'undefined') {
       return res.status(400).json({
@@ -311,13 +342,75 @@ app.post('/mcp/:staffId', async (req, res) => {
       });
     }
 
-    // Handle different request formats (direct tool call vs MCP protocol)
+    // Handle MCP protocol messages (when called from n8n via MCP Client)
+    if (jsonrpc && method) {
+      switch (method) {
+        case 'initialize':
+          res.json({
+            jsonrpc: '2.0',
+            id: id,
+            result: {
+              protocolVersion: '2024-11-05',
+              capabilities: { tools: {}, resources: {}, prompts: {} },
+              serverInfo: { name: 'elastic-brain-mcp', version: '1.0.0', staffId }
+            }
+          });
+          return;
+
+        case 'tools/list':
+          const { getBrainToolsList } = await import('./brain-tools.js');
+          const brainTools = getBrainToolsList();
+          
+          res.json({
+            jsonrpc: '2.0',
+            id: id,
+            result: { 
+              tools: brainTools,
+              totalTools: brainTools.length,
+              staffId: staffId
+            }
+          });
+          return;
+
+        case 'tools/call':
+          const toolName = params.name;
+          const toolArgs = params.arguments || {};
+          
+          if (!toolName) {
+            return res.json({
+              jsonrpc: '2.0',
+              id: id,
+              error: { code: -32602, message: 'Tool name is required' }
+            });
+          }
+
+          try {
+            const result = await processBrainToolCall(toolName, toolArgs, staffId);
+            res.json({
+              jsonrpc: '2.0',
+              id: id,
+              result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+            });
+          } catch (error) {
+            res.json({
+              jsonrpc: '2.0',
+              id: id,
+              error: { code: -32603, message: error instanceof Error ? error.message : 'Unknown error' }
+            });
+          }
+          return;
+
+        default:
+          res.json({ jsonrpc: '2.0', id: id, result: {} });
+          return;
+      }
+    }
+
+    // Handle direct tool calls (non-MCP format)
     if (method) {
-      // Direct tool call format: {"method": "create_entities", "params": {...}}
       const response = await processBrainToolCall(method, params || {}, staffId);
       res.json(response);
     } else {
-      // Check if this is a tool call in the body
       const toolName = req.body.name || req.body.toolName;
       const toolArgs = req.body.arguments || req.body.params || req.body.args || {};
       
