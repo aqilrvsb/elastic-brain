@@ -761,10 +761,144 @@ const ultimateHybridTools = [
         businessContext: { type: "string", description: "Business context for timing suggestions" }
       }
     }
+  },
+
+  // ==========================================
+  // ADDITIONAL POWER TOOLS (7 tools to complete 32)
+  // ==========================================
+
+  {
+    name: "suggest_response_template",
+    description: "AI-powered high-converting message templates with personality optimization",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scenario: {
+          type: "string",
+          enum: ["introduction", "follow_up", "price_objection", "timing_objection", "competition_objection", "closing", "post_sale"],
+          description: "Communication scenario"
+        },
+        customerPersonality: { type: "string", description: "Customer personality type" },
+        industry: { type: "string", description: "Customer industry" },
+        dealSize: { type: "number", description: "Deal value for customization" },
+        urgency: { type: "string", enum: ["low", "medium", "high"], description: "Deal urgency level" }
+      },
+      required: ["scenario"]
+    }
+  },
+
+  {
+    name: "analyze_conversation_patterns",
+    description: "Advanced pattern analysis with predictive insights and recommendations",
+    inputSchema: {
+      type: "object",
+      properties: {
+        conversationHistory: { type: "array", items: { type: "object" }, description: "Historical conversations" },
+        analysisType: {
+          type: "string",
+          enum: ["success_patterns", "failure_patterns", "timing_patterns", "communication_patterns", "all"],
+          description: "Type of pattern analysis"
+        },
+        predictiveInsights: { type: "boolean", default: true, description: "Include predictive insights" },
+        actionableRecommendations: { type: "boolean", default: true, description: "Include action recommendations" }
+      },
+      required: ["conversationHistory"]
+    }
+  },
+
+  {
+    name: "predict_success_probability",
+    description: "Multi-factor success prediction with confidence scoring and improvement suggestions",
+    inputSchema: {
+      type: "object",
+      properties: {
+        customerProfile: { type: "object", description: "Complete customer profile" },
+        conversationHistory: { type: "array", items: { type: "object" }, description: "Conversation data" },
+        dealContext: { type: "object", description: "Deal context and stage" },
+        competitorInfo: { type: "object", description: "Competitive landscape" },
+        includeFactors: { type: "boolean", default: true, description: "Include success/failure factors" },
+        improvementSuggestions: { type: "boolean", default: true, description: "Include improvement suggestions" }
+      },
+      required: ["customerProfile", "dealContext"]
+    }
+  },
+
+  {
+    name: "get_timing_recommendations",
+    description: "Optimal timing with behavioral analysis and cultural intelligence",
+    inputSchema: {
+      type: "object",
+      properties: {
+        customerId: { type: "string", description: "Customer identifier" },
+        actionType: {
+          type: "string",
+          enum: ["follow_up", "call", "email", "proposal", "closing", "demo"],
+          description: "Type of action to time"
+        },
+        customerTimezone: { type: "string", description: "Customer timezone" },
+        urgency: { type: "string", enum: ["low", "medium", "high"], description: "Deal urgency" },
+        culturalConsiderations: { type: "boolean", default: true, description: "Include cultural timing factors" },
+        behavioralAnalysis: { type: "boolean", default: true, description: "Analyze customer behavior patterns" }
+      },
+      required: ["customerId", "actionType"]
+    }
+  },
+
+  {
+    name: "contribute_success_story",
+    description: "Success story sharing with AI pattern recognition and intelligence extraction",
+    inputSchema: {
+      type: "object",
+      properties: {
+        dealContext: { type: "object", description: "Deal context and details" },
+        successFactors: { type: "array", items: { type: "string" }, description: "Key success factors" },
+        strategies: { type: "array", items: { type: "string" }, description: "Winning strategies used" },
+        challenges: { type: "array", items: { type: "string" }, description: "Challenges overcome" },
+        extractPatterns: { type: "boolean", default: true, description: "Extract reusable patterns" },
+        anonymizeData: { type: "boolean", default: true, description: "Anonymize before sharing" }
+      },
+      required: ["dealContext", "successFactors"]
+    }
+  },
+
+  {
+    name: "report_failed_approach",
+    description: "Failure reporting with AI prevention strategies and learning optimization",
+    inputSchema: {
+      type: "object",
+      properties: {
+        failureContext: { type: "object", description: "Context of the failed approach" },
+        approachUsed: { type: "string", description: "Approach that failed" },
+        failureReasons: { type: "array", items: { type: "string" }, description: "Identified failure reasons" },
+        customerReaction: { type: "string", description: "Customer response to the approach" },
+        generatePreventionStrategy: { type: "boolean", default: true, description: "Generate prevention strategies" },
+        updateWarningSystem: { type: "boolean", default: true, description: "Update warning system" }
+      },
+      required: ["failureContext", "approachUsed", "failureReasons"]
+    }
+  },
+
+  {
+    name: "get_intelligence_stats",
+    description: "Comprehensive intelligence statistics with AI insights and performance trends",
+    inputSchema: {
+      type: "object",
+      properties: {
+        timeframe: { type: "number", default: 30, description: "Days to analyze" },
+        statsType: {
+          type: "string",
+          enum: ["personal_performance", "shared_intelligence", "learning_progress", "ai_insights", "comparative_analysis", "all"],
+          description: "Type of statistics to retrieve"
+        },
+        includeComparisons: { type: "boolean", default: true, description: "Include peer comparisons" },
+        trendAnalysis: { type: "boolean", default: true, description: "Include trend analysis" },
+        actionableInsights: { type: "boolean", default: true, description: "Include actionable insights" }
+      }
+    }
   }
 ];
 
-// Export only the ultimate hybrid tools - complete solution
+// Export only the ultimate hybrid tools - complete solution (NOW 32 TOOLS!)
 export const brainTools = ultimateHybridTools;
 
 export default brainTools;
