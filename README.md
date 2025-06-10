@@ -47,7 +47,7 @@ WhatsApp → n8n → HTTP Stream MCP → Elasticsearch Brain → Sales Intellige
 ### **Relationship Management (3 tools)**
 9. `create_relations` - Connect entities with relationships
 10. `delete_relations` - Remove connections
-11. Cross-zone relations - Link knowledge across domains
+11. `cross_zone_relations` - Link knowledge across domains
 
 ### **Memory Zone Management (8 tools)**
 12. `list_zones` - Browse knowledge domains
@@ -57,24 +57,27 @@ WhatsApp → n8n → HTTP Stream MCP → Elasticsearch Brain → Sales Intellige
 16. `move_entities` - Reorganize information
 17. `merge_zones` - Combine knowledge domains
 18. `zone_stats` - Analyze zone contents
-19. Zone isolation - Secure multi-tenant operation
+19. `zone_isolation` - Secure multi-tenant operation
 
 ### **AI-Powered Intelligence (4 tools)**
 20. `inspect_knowledge_graph` - AI-driven entity analysis
 21. `inspect_files` - AI file content extraction
-22. Smart search ranking - Relevance-based results
-23. Context-aware retrieval - Conversational memory
+22. `smart_search_ranking` - Relevance-based results
+23. `context_aware_retrieval` - Conversational memory
 
 ### **Sales Intelligence Extensions (9 tools)**
-24. Customer profiling - Store client information
-25. Conversation analysis - Track communication history
-26. Objection handling - Learn from sales interactions
-27. Pattern recognition - Identify successful strategies
-28. Conversion tracking - Monitor sales performance
-29. Response suggestions - AI-powered recommendations
-30. Lead scoring - Prioritize prospects
-31. Pipeline management - Track deal progression
-32. Performance analytics - Sales intelligence dashboards
+24. `customer_profiling` - Store client information
+25. `conversation_analysis` - Track communication history
+26. `objection_handling` - Learn from sales interactions
+27. `pattern_recognition` - Identify successful strategies
+28. `conversion_tracking` - Monitor sales performance
+29. `response_suggestions` - AI-powered recommendations
+30. `lead_scoring` - Prioritize prospects
+31. `pipeline_management` - Track deal progression
+32. `performance_analytics` - Sales intelligence dashboards
+
+**Utility Tool (1 tool)**
+- `get_time_utc` - Get current UTC time
 
 ## 🚀 **Quick Setup (5 Minutes)**
 
@@ -96,8 +99,8 @@ Write-Host "Brain Session ID: $($response.userId)"
 
 **Add MCP Client Node:**
 - **Connect using:** `HTTP Streamable`
-- **HTTP Stream URL:** `https://elastic-brain.up.railway.app/stream`
-- **Messages Post Endpoint:** `https://elastic-brain.up.railway.app/mcp/YOUR_SESSION_ID`
+- **HTTP Stream URL:** `https://elastic-brain-production.up.railway.app/stream/staff-{YOUR_ID}`
+- **Messages Post Endpoint:** `https://elastic-brain-production.up.railway.app/mcp/staff-{YOUR_ID}`
 
 ### **3. Claude Desktop Integration**
 
@@ -108,7 +111,7 @@ Write-Host "Brain Session ID: $($response.userId)"
       "command": "node",
       "args": [
         "-e",
-        "const https = require('https'); const readline = require('readline'); const USER_ID = 'YOUR_SESSION_ID'; const BASE_URL = 'elastic-brain.up.railway.app'; /* HTTP MCP client code */"
+        "const https = require('https'); const readline = require('readline'); const USER_ID = 'staff-{YOUR_ID}'; const BASE_URL = 'elastic-brain-production.up.railway.app'; /* HTTP MCP client code */"
       ]
     }
   }
@@ -145,28 +148,25 @@ Write-Host "Brain Session ID: $($response.userId)"
 
 // Store customer profile
 {
-  "operation": "create_entities",
-  "entities": [
-    {
-      "name": "John Doe",
-      "entityType": "Customer",
-      "observations": [
-        "Interested in premium package",
-        "Budget around $5000",
-        "Prefers email communication",
-        "Works in tech industry"
-      ]
-    }
-  ],
-  "memory_zone": "customer-john-doe"
+  "operation": "customer_profiling",
+  "customer_data": {
+    "name": "John Doe",
+    "company": "Tech Corp",
+    "industry": "technology",
+    "budget": 5000,
+    "contact_method": "WhatsApp",
+    "sales_stage": "prospect",
+    "notes": ["Interested in premium package", "Prefers email communication"]
+  },
+  "memory_zone": "staff-alice-123"
 }
 
 // AI-powered search for similar customers
 {
-  "operation": "search_nodes",
+  "operation": "smart_search_ranking",
   "query": "tech industry premium package budget 5000",
-  "informationNeeded": "Find similar customers with tech background and premium interest",
-  "memory_zone": "sales-patterns"
+  "information_needed": "Find similar customers with tech background and premium interest",
+  "memory_zone": "staff-alice-123"
 }
 ```
 
@@ -177,8 +177,8 @@ Write-Host "Brain Session ID: $($response.userId)"
 {
   "operation": "copy_entities",
   "names": ["successful-objection-handling", "premium-closing-technique"],
-  "source_zone": "top-performer-alice",
-  "target_zone": "shared-knowledge",
+  "source_zone": "staff-top-performer-alice",
+  "target_zone": "staff-shared-knowledge",
   "copy_relations": true
 }
 ```
@@ -212,7 +212,7 @@ npm run dev
 ```bash
 # Railway will auto-deploy from master branch
 git add -A
-git commit -m "Deploy brain MCP server"
+git commit -m "Deploy brain MCP server with 32 tools"
 git push origin main:master
 ```
 
@@ -241,28 +241,16 @@ GROQ_API_KEY=your_groq_api_key_optional
 
 ## 📝 **API Reference**
 
-### **Authentication**
-```http
-POST /auth
-Content-Type: application/json
-
-{
-  "elasticsearchUrl": "https://your-elasticsearch-url",
-  "elasticsearchApiKey": "your-api-key",
-  "groqApiKey": "optional-groq-key"
-}
-```
-
 ### **Brain Operations**
 ```http
-POST /mcp/{sessionId}
+POST /mcp/{staffId}
 Content-Type: application/json
 
 {
   "method": "create_entities",
   "params": {
     "entities": [...],
-    "memory_zone": "zone-name"
+    "memory_zone": "staff-alice-123"
   }
 }
 ```
@@ -283,7 +271,7 @@ Response:
 ## 🔗 **Links & Resources**
 
 - **GitHub Repository:** https://github.com/aqilrvsb/elastic-brain
-- **Railway Deployment:** https://elastic-brain.up.railway.app
+- **Railway Deployment:** https://elastic-brain-production.up.railway.app
 - **Original Brain Tools:** https://github.com/j3k0/mcp-brain-tools
 - **Reference Architecture:** https://github.com/aqilrvsb/newFB
 
