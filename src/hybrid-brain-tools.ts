@@ -1,7 +1,14 @@
 // Enhanced Brain Tools for Hybrid Learning Architecture
 // Supports both private staff zones and shared intelligence
+// INCLUDES: Original 32 Brain Tools + 16 Hybrid Learning Tools = 48 Total Tools
 
-export const brainTools = [
+import { getBrainToolsList } from './brain-tools.js';
+
+// Get original 32 brain tools
+const originalBrainTools = getBrainToolsList();
+
+// Hybrid Learning Tools (16 additional tools)
+const hybridLearningTools = [
   // ==========================================
   // PRIVATE ZONE TOOLS (Staff-specific data)
   // ==========================================
@@ -365,6 +372,12 @@ export const brainTools = [
       }
     }
   }
+];
+
+// Combine original brain tools + hybrid learning tools
+export const brainTools = [
+  ...originalBrainTools,  // Original 32 brain tools
+  ...hybridLearningTools  // 16 hybrid learning tools
 ];
 
 export default brainTools;

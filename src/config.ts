@@ -12,7 +12,7 @@ export const serverConfig = {
 
 // Elasticsearch configuration - REAL DEPLOYMENT (Correct URL + API Key)
 export const elasticsearchConfig = {
-  node: 'https://my-elasticsearch-project-d584c1b.ap-southeast-1.aws.elastic.cloud:9243',
+  node: 'https://bc4d20f99098440d8df975469328cb06.ap-southeast-1.aws.found.io:443',
   auth: {
     apiKey: 'S0NjaFdwY0JZa0RQVUJjS1ZzR2o6X1ZvdTNTUXJKWldOb1ZnZlZySk1JQQ=='
   }
