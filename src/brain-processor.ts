@@ -12,8 +12,28 @@ function formatDate(date: Date = new Date()): string {
 }
 
 export async function processBrainTool(toolName: string, params: any, staffId: string): Promise<any> {
-  // Get KG client for this staff member (auto-creates if needed)
-  const kgClient = await staffBrainManager.getKgClient(staffId);
+  // Simple test tool that works without Elasticsearch
+  if (toolName === 'get_time_utc') {
+    const currentTime = new Date();
+    return {
+      success: true,
+      staffId,
+      utcTime: currentTime.toISOString(),
+      formattedTime: currentTime.toISOString().replace('T', ' ').substring(0, 19),
+      timestamp: currentTime.getTime(),
+      message: 'Brain MCP server is working! Elasticsearch connection will be fixed next.'
+    };
+  }
+
+  // For now, return mock response for other tools
+  return {
+    success: false,
+    staffId,
+    error: 'Elasticsearch connection issue - will be fixed. But MCP protocol is working!',
+    tool: toolName,
+    note: 'The n8n MCP Client connection is successful - just need to fix Elasticsearch URL'
+  };
+}
 
   // Auto-set memory_zone to staffId if not provided
   if (params && typeof params === 'object' && !params.memory_zone) {
