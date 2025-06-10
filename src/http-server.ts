@@ -195,17 +195,67 @@ app.post('/stream/:staffId?', async (req, res) => {
         });
         break;
 
-      case 'tools/call':
-        // DEBUG: This should NOT happen if n8n is configured correctly
-        console.error(`[ERROR] Tool call received on /stream endpoint instead of /mcp!`);
-        console.error(`[ERROR] Tool: ${params.name}, StaffId: ${staffId}`);
-        console.error(`[ERROR] n8n should send tool calls to /mcp/${staffId}, not /stream`);
+// Handle POST requests to /stream (n8n MCP Client compatibility) - MISSING CRITICAL ENDPOINT
+app.post('/stream/:staffId?', async (req, res) => {
+  try {
+    const { jsonrpc, method, params, id } = req.body;
+    
+    // Extract staffId from URL, headers, or body - EXACT PATTERN FROM WORKING VERSION
+    const staffId = req.params.staffId || 
+                   (req.headers['x-staff-id'] as string) || 
+                   (req.headers['X-Staff-ID'] as string) ||
+                   req.body.sessionId || 
+                   req.query.sessionId as string;
+
+    // DEBUG: Log everything to understand what n8n is sending
+    console.error(`[DEBUG] POST /stream - Method: ${method}`);
+    console.error(`[DEBUG] URL staffId: ${req.params.staffId}`);
+    console.error(`[DEBUG] Final staffId: ${staffId}`);
+    console.error(`[DEBUG] Tool name: ${params?.name}`);
+
+    // Handle MCP protocol messages - EXACT PATTERN FROM WORKING VERSION
+    switch (method) {
+      case 'initialize':
+        res.json({
+          jsonrpc: '2.0',
+          id: id,
+          result: {
+            protocolVersion: '2024-11-05',
+            capabilities: {
+              tools: {},
+              resources: {},
+              prompts: {}
+            },
+            serverInfo: {
+              name: 'elastic-brain-mcp',
+              version: '1.0.0'
+            }
+          }
+        });
+        break;
+
+      case 'tools/list':
+        const { getBrainToolsList } = await import('./brain-tools.js');
+        const brainTools = getBrainToolsList();
         
-        // Extract staffId dynamically from multiple sources - WORKING PATTERN
+        res.json({
+          jsonrpc: '2.0',
+          id: id,
+          result: {
+            tools: brainTools
+          }
+        });
+        break;
+
+      case 'tools/call':
+        // This is where n8n is sending tool calls
+        console.error(`[DEBUG] Tool call received on /stream: ${params?.name}`);
+        
         const toolName = params.name;
         const toolArgs = params.arguments || {};
         
         if (!staffId) {
+          console.error(`[ERROR] No staffId found - URL: ${req.params.staffId}, Headers: ${req.headers['x-staff-id']}`);
           return res.json({
             jsonrpc: '2.0',
             id: id,
@@ -215,6 +265,52 @@ app.post('/stream/:staffId?', async (req, res) => {
             }
           });
         }
+        
+        try {
+          const result = await processBrainToolCall(toolName, toolArgs, staffId);
+          res.json({
+            jsonrpc: '2.0',
+            id: id,
+            result: {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(result, null, 2)
+                }
+              ]
+            }
+          });
+        } catch (error) {
+          res.json({
+            jsonrpc: '2.0',
+            id: id,
+            error: {
+              code: -32603,
+              message: error instanceof Error ? error.message : 'Unknown error'
+            }
+          });
+        }
+        break;
+
+      default:
+        res.json({
+          jsonrpc: '2.0',
+          id: id,
+          result: {}
+        });
+    }
+  } catch (error) {
+    console.error('POST /stream error:', error);
+    res.status(500).json({
+      jsonrpc: '2.0',
+      id: req.body?.id || null,
+      error: {
+        code: -32603,
+        message: 'Internal error'
+      }
+    });
+  }
+});
         
         try {
           const result = await processBrainToolCall(toolName, toolArgs, staffId);
