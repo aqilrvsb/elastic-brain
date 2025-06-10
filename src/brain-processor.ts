@@ -1081,8 +1081,8 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
           metrics: {
             totalDeals: allDeals.entities.length,
             totalPipelineValue,
-            conversionRate: conversionRate.toFixed(2),
-            avgDealSize: (totalPipelineValue / allDeals.entities.length || 0).toFixed(2)
+            conversionRate: parseFloat(conversionRate.toFixed(2)),
+            avgDealSize: parseFloat((totalPipelineValue / allDeals.entities.length || 0).toFixed(2))
           },
           managementType: 'PIPELINE_TRACKING'
         };
@@ -1163,7 +1163,7 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
           analytics.objections.avgEffectiveness / analytics.objections.total : 0;
         
         analytics.performance.conversionRate = analytics.customers.total > 0 ? 
-          (analytics.customers.converted / analytics.customers.total * 100).toFixed(2) : 0;
+          parseFloat((analytics.customers.converted / analytics.customers.total * 100).toFixed(2)) : 0;
         
         return {
           success: true,
