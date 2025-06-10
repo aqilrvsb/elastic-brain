@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+import fetch from 'node-fetch';
 
 const BASE_URL = 'https://elastic-brain-production.up.railway.app';
 const STAFF_ID = 'test-staff-123';
@@ -105,6 +105,8 @@ async function testAll32Tools() {
 
   } catch (error) {
     console.error('❌ Test failed:', error);
+    console.log('💡 This might be expected if Railway is still deploying the fix...');
+    console.log('⏳ Wait 2-3 minutes and try again');
   }
 }
 

@@ -1,5 +1,6 @@
 import { startHttpServer, stopHttpServer } from './http-server.js';
 import { serverConfig } from './config.js';
+import { initializeBrainIndices } from './brain-indices-init.js';
 
 // Main application startup
 const main = async () => {
@@ -10,6 +11,10 @@ const main = async () => {
     console.error(`🔌 Configured Port: ${serverConfig.port}`);
     console.error(`👥 Max connections: ${serverConfig.maxConnections}`);
     console.error(`🧠 Brain tools: 32 available`);
+    
+    // Initialize Brain Elasticsearch indices
+    console.error('🔧 Initializing Elasticsearch Brain indices...');
+    await initializeBrainIndices();
     
     // Start HTTP server with WebSocket support
     await startHttpServer();
