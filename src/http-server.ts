@@ -120,14 +120,8 @@ app.post('/stream/:userId?', async (req, res) => {
 
       case 'notifications/initialized':
         // Handle n8n MCP client initialization notification
-        res.json({
-          jsonrpc: '2.0',
-          id: id,
-          result: {
-            acknowledged: true,
-            message: 'Brain MCP server initialized successfully'
-          }
-        });
+        // For notifications, we should not send a response with id
+        res.status(200).end(); // Just acknowledge with 200 OK
         break;
 
       case 'tools/list':
@@ -245,16 +239,9 @@ app.post('/stream/:userId/:nicheId', async (req, res) => {
         break;
 
       case 'notifications/initialized':
-        // Handle n8n MCP client initialization notification
-        res.json({
-          jsonrpc: '2.0',
-          id: id,
-          result: {
-            acknowledged: true,
-            nicheId: nicheId,
-            message: `Niche brain ${nicheId} initialized successfully`
-          }
-        });
+        // Handle n8n MCP client initialization notification  
+        // For notifications, we should not send a response with id
+        res.status(200).end(); // Just acknowledge with 200 OK
         break;
 
       case 'tools/list':
