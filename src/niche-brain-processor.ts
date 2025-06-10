@@ -400,4 +400,4 @@ function mockAIAnalysis(type: string, data: any) {
   }
 }
 
-export { nicheMockAIAnalysis };
+export { mockAIAnalysis as nicheMockAIAnalysis };
