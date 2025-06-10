@@ -150,6 +150,113 @@ app.get('/stream', (req, res) => {
   });
 });
 
+// Handle POST requests to /stream (n8n MCP Client compatibility) - MISSING CRITICAL ENDPOINT
+app.post('/stream/:staffId?', async (req, res) => {
+  try {
+    const { jsonrpc, method, params, id } = req.body;
+    
+    // Extract staffId from URL, headers, or body - EXACT PATTERN FROM WORKING VERSION
+    const staffId = req.params.staffId || 
+                   (req.headers['x-staff-id'] as string) || 
+                   req.body.sessionId || 
+                   req.query.sessionId as string;
+
+    // Handle MCP protocol messages - EXACT PATTERN FROM WORKING VERSION
+    switch (method) {
+      case 'initialize':
+        res.json({
+          jsonrpc: '2.0',
+          id: id,
+          result: {
+            protocolVersion: '2024-11-05',
+            capabilities: {
+              tools: {},
+              resources: {},
+              prompts: {}
+            },
+            serverInfo: {
+              name: 'elastic-brain-mcp',
+              version: '1.0.0'
+            }
+          }
+        });
+        break;
+
+      case 'tools/list':
+        const { getBrainToolsList } = await import('./brain-tools.js');
+        const brainTools = getBrainToolsList();
+        
+        res.json({
+          jsonrpc: '2.0',
+          id: id,
+          result: {
+            tools: brainTools
+          }
+        });
+        break;
+
+      case 'tools/call':
+        // Extract staffId dynamically from multiple sources - WORKING PATTERN
+        const toolName = params.name;
+        const toolArgs = params.arguments || {};
+        
+        if (!staffId) {
+          return res.json({
+            jsonrpc: '2.0',
+            id: id,
+            error: {
+              code: -32602,
+              message: 'STAFF_ID required. Add staff ID to URL: /stream/staff-alice-123'
+            }
+          });
+        }
+        
+        try {
+          const result = await processBrainToolCall(toolName, toolArgs, staffId);
+          res.json({
+            jsonrpc: '2.0',
+            id: id,
+            result: {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(result, null, 2)
+                }
+              ]
+            }
+          });
+        } catch (error) {
+          res.json({
+            jsonrpc: '2.0',
+            id: id,
+            error: {
+              code: -32603,
+              message: error instanceof Error ? error.message : 'Unknown error'
+            }
+          });
+        }
+        break;
+
+      default:
+        res.json({
+          jsonrpc: '2.0',
+          id: id,
+          result: {}
+        });
+    }
+  } catch (error) {
+    console.error('POST /stream error:', error);
+    res.status(500).json({
+      jsonrpc: '2.0',
+      id: req.body?.id || null,
+      error: {
+        code: -32603,
+        message: 'Internal error'
+      }
+    });
+  }
+});
+
 // Handle POST requests to /stream (n8n MCP Client compatibility)
 app.post('/stream/:staffId?', async (req, res) => {
   try {
