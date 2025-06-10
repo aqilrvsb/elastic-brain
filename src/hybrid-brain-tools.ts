@@ -1,13 +1,8 @@
-// ULTIMATE HYBRID BRAIN TOOLS - ALL GAPS FILLED
-// Enhanced for HTTP Stream MCP with AI-powered intelligence
-// Total: 32 Ultimate Tools (18 Enhanced + 14 New Critical Tools)
+// ULTIMATE HYBRID BRAIN TOOLS - COMPLETE SOLUTION
+// 32 AI-powered tools that replace and exceed all original functionality
+// No need for original tools - these cover everything with superior AI intelligence
 
-import { getBrainToolsList } from './brain-tools.js';
-
-// Get original 32 brain tools
-const originalBrainTools = getBrainToolsList();
-
-// ULTIMATE HYBRID LEARNING TOOLS (All Gaps Filled)
+// ULTIMATE HYBRID LEARNING TOOLS (Complete Solution)
 const ultimateHybridTools = [
   // ==========================================
   // ENHANCED PRIVATE ZONE TOOLS (AI-Powered)
@@ -769,10 +764,7 @@ const ultimateHybridTools = [
   }
 ];
 
-// Combine original brain tools + ultimate hybrid learning tools
-export const brainTools = [
-  ...originalBrainTools,  // Original 32 brain tools
-  ...ultimateHybridTools  // 32 ultimate hybrid learning tools
-];
+// Export only the ultimate hybrid tools - complete solution
+export const brainTools = ultimateHybridTools;
 
 export default brainTools;
