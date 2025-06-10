@@ -83,7 +83,7 @@ app.get('/stream/:staffId?', (req, res) => {
 
   // Send initial connection message
   const staffId = req.params.staffId;
-  res.write(`data: {"type":"connection","status":"connected","message":"Brain MCP Server stream ready","staffId":"${staffId || 'none'}","tools":6}\n\n`);
+  res.write(`data: {"type":"connection","status":"connected","message":"Brain MCP Server stream ready","staffId":"${staffId || 'none'}","tools":32}\n\n`);
 
   if (isBrowser) {
     // For browser testing: send a few messages then close
@@ -139,20 +139,16 @@ app.post('/stream/:staffId?', async (req, res) => {
           }
         });
         break;      case 'tools/list':
-        // Return brain tools directly (like Facebook MCP pattern)
+        // Import and return all 32 brain tools (like original implementation)
+        const { getBrainToolsList } = await import('./brain-tools.js');
+        const brainTools = getBrainToolsList();
+        
+        console.error(`[DEBUG] Returning ${brainTools.length} brain tools for staff ${staffId}`);
+        
         res.json({
           jsonrpc: '2.0',
           id: id,
-          result: {
-            tools: [
-              { name: 'get_time_utc', description: 'Get current UTC time', inputSchema: { type: 'object', properties: {} } },
-              { name: 'create_entities', description: 'Create entities in brain memory', inputSchema: { type: 'object', properties: { entities: { type: 'array' } }, required: ['entities'] } },
-              { name: 'search_nodes', description: 'Search brain entities with AI', inputSchema: { type: 'object', properties: { query: { type: 'string' }, informationNeeded: { type: 'string' }, reason: { type: 'string' } }, required: ['query', 'informationNeeded', 'reason'] } },
-              { name: 'create_zone', description: 'Create memory zone', inputSchema: { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' } }, required: ['name'] } },
-              { name: 'list_zones', description: 'List memory zones', inputSchema: { type: 'object', properties: {} } },
-              { name: 'inspect_knowledge_graph', description: 'AI-driven knowledge graph inspection', inputSchema: { type: 'object', properties: { information_needed: { type: 'string' }, keywords: { type: 'array' } }, required: ['information_needed', 'keywords'] } }
-            ]
-          }
+          result: { tools: brainTools }
         });
         break;
 
