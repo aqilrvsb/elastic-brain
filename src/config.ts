@@ -10,13 +10,17 @@ export const serverConfig = {
   }
 };
 
-// Elasticsearch configuration - PRODUCTION READY
+// Elasticsearch configuration - PRODUCTION READY (hardcoded to ensure Railway deployment works)
 export const elasticsearchConfig = {
-  node: process.env.ELASTICSEARCH_URL || 'https://my-elasticsearch-project-d584c1b.ap-southeast-1.aws.elastic.cloud:9243',
+  node: 'https://my-elasticsearch-project-d584c1b.ap-southeast-1.aws.elastic.cloud:9243',
   auth: {
-    apiKey: process.env.ELASTICSEARCH_API_KEY || 'S0NjaFdwY0JZa0RQVUJjS1ZzR2o6X1ZvdTNTUXJKWldOb1ZnZlZySk1JQQ=='
+    apiKey: 'S0NjaFdwY0JZa0RQVUJjS1ZzR2o6X1ZvdTNTUXJKWldOb1ZnZlZySk1JQQ=='
   }
 };
+
+// Debug logging for Railway deployment
+console.error('[CONFIG] Elasticsearch URL:', elasticsearchConfig.node);
+console.error('[CONFIG] API Key length:', elasticsearchConfig.auth.apiKey.length);
 
 // Simple KG client cache for staff IDs
 class StaffBrainManager {
