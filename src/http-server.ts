@@ -66,9 +66,13 @@ app.get('/test-deploy', (req, res) => {
   });
 });
 
-// Stream endpoint for n8n MCP Client compatibility (EXACTLY like Facebook MCP)
+// Stream endpoint for n8n MCP Client compatibility
 app.get('/stream/:staffId?', (req, res) => {
-  // Set headers for SSE (Server-Sent Events) - EXACT SAME as Facebook MCP
+  // Check if this is a browser request (for testing) vs n8n request
+  const userAgent = req.get('User-Agent') || '';
+  const isBrowser = userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari') || userAgent.includes('Edge');
+  
+  // Set headers for SSE (Server-Sent Events)
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
@@ -77,23 +81,42 @@ app.get('/stream/:staffId?', (req, res) => {
     'Access-Control-Allow-Headers': 'Cache-Control'
   });
 
-  // Send initial connection message - SAME PATTERN as Facebook MCP
+  // Send initial connection message
   const staffId = req.params.staffId;
-  res.write(`data: {"type":"connection","status":"connected","message":"Brain MCP Server stream ready","staffId":"${staffId || 'none'}"}\n\n`);
+  res.write(`data: {"type":"connection","status":"connected","message":"Brain MCP Server stream ready","staffId":"${staffId || 'none'}","tools":6}\n\n`);
 
-  // Keep connection alive with periodic heartbeat - EXACT SAME as Facebook MCP
-  const heartbeat = setInterval(() => {
-    res.write('data: {"type":"heartbeat","timestamp":"' + new Date().toISOString() + '"}\n\n');
-  }, 30000); // Every 30 seconds
+  if (isBrowser) {
+    // For browser testing: send a few messages then close
+    let messageCount = 0;
+    const browserInterval = setInterval(() => {
+      messageCount++;
+      res.write(`data: {"type":"heartbeat","timestamp":"${new Date().toISOString()}","message":"Browser test ${messageCount}/3"}\n\n`);
+      
+      if (messageCount >= 3) {
+        clearInterval(browserInterval);
+        res.write(`data: {"type":"close","message":"Browser test complete - stream ending"}\n\n`);
+        res.end();
+      }
+    }, 1000);
 
-  // Clean up on client disconnect - EXACT SAME as Facebook MCP
-  req.on('close', () => {
-    clearInterval(heartbeat);
-  });
+    req.on('close', () => clearInterval(browserInterval));
+    req.on('aborted', () => clearInterval(browserInterval));
+    
+  } else {
+    // For n8n: keep connection alive with periodic heartbeat (like Facebook MCP)
+    const heartbeat = setInterval(() => {
+      res.write('data: {"type":"heartbeat","timestamp":"' + new Date().toISOString() + '"}\n\n');
+    }, 30000); // Every 30 seconds
 
-  req.on('aborted', () => {
-    clearInterval(heartbeat);
-  });
+    // Clean up on client disconnect
+    req.on('close', () => {
+      clearInterval(heartbeat);
+    });
+
+    req.on('aborted', () => {
+      clearInterval(heartbeat);
+    });
+  }
 });
 
 // Handle POST requests to /stream (n8n MCP Client compatibility)
