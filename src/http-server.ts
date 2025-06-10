@@ -51,14 +51,16 @@ app.get('/', (req, res) => {
     tools: 32,
     endpoints: {
       health: '/health',
-      stream: '/stream/{STAFF_ID}',
+      stream: '/stream',
       mcp: '/mcp/{STAFF_ID}'
     }
   });
 });
 
-// Stream endpoint for n8n MCP Client - GET for SSE connection (NO STAFF_ID)
-app.get('/stream', (req, res) => {
+// Stream endpoint for n8n MCP Client compatibility (GET for SSE, POST for MCP messages)
+// EXACT COPY FROM WORKING FACEBOOK MCP
+app.get('/stream/:userId?', (req, res) => {
+  // Set headers for SSE (Server-Sent Events)
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
@@ -67,12 +69,16 @@ app.get('/stream', (req, res) => {
     'Access-Control-Allow-Headers': 'Cache-Control'
   });
 
-  res.write(`data: {"type":"connection","status":"connected","message":"Brain MCP Server stream ready","tools":32}\n\n`);
+  // Send initial connection message
+  const userId = req.params.userId;
+  res.write(`data: {"type":"connection","status":"connected","message":"Brain MCP Server stream ready","userId":"${userId || 'none'}"}\n\n`);
 
+  // Keep connection alive with periodic heartbeat
   const heartbeat = setInterval(() => {
     res.write('data: {"type":"heartbeat","timestamp":"' + new Date().toISOString() + '"}\n\n');
-  }, 30000);
+  }, 30000); // Every 30 seconds
 
+  // Clean up on client disconnect
   req.on('close', () => {
     clearInterval(heartbeat);
   });
@@ -82,21 +88,13 @@ app.get('/stream', (req, res) => {
   });
 });
 
-// Handle n8n tool calls - n8n sends everything to Stream URL
-app.post('/stream', async (req, res) => {
+// Handle POST requests to /stream (n8n MCP Client compatibility)
+// EXACT COPY FROM WORKING FACEBOOK MCP
+app.post('/stream/:userId?', async (req, res) => {
   try {
     const { jsonrpc, method, params, id } = req.body;
-    
-    console.error(`[DEBUG] POST /stream - Method: ${method}`);
-    console.error(`[DEBUG] Headers:`, JSON.stringify(req.headers, null, 2));
-    
-    // Extract staffId from headers since URL doesn't have it
-    const staffId = (req.headers['x-staff-id'] as string) || 
-                   req.body.sessionId || 
-                   req.query.sessionId as string;
-    
-    console.error(`[DEBUG] Extracted staffId: ${staffId}`);
 
+    // Handle MCP protocol messages
     switch (method) {
       case 'initialize':
         res.json({
@@ -104,8 +102,15 @@ app.post('/stream', async (req, res) => {
           id: id,
           result: {
             protocolVersion: '2024-11-05',
-            capabilities: { tools: {}, resources: {}, prompts: {} },
-            serverInfo: { name: 'elastic-brain-mcp', version: '1.0.0' }
+            capabilities: {
+              tools: {},
+              resources: {},
+              prompts: {}
+            },
+            serverInfo: {
+              name: 'brain-mcp',
+              version: '1.0.0'
+            }
           }
         });
         break;
@@ -117,27 +122,36 @@ app.post('/stream', async (req, res) => {
         res.json({
           jsonrpc: '2.0',
           id: id,
-          result: { tools: brainTools }
+          result: {
+            tools: brainTools
+          }
         });
         break;
 
       case 'tools/call':
-        if (!staffId) {
-          return res.json({
+        // Route tool calls to the main MCP endpoint with session from params
+        const toolName = params.name;
+        const toolArgs = params.arguments || {};
+        
+        // Extract userId dynamically from multiple sources
+        const userId = req.params.userId || 
+                      (req.headers['x-user-id'] as string) || 
+                      req.body.sessionId || 
+                      req.query.sessionId as string;
+        
+        if (!userId) {
+          return res.status(400).json({
             jsonrpc: '2.0',
             id: id,
             error: {
               code: -32602,
-              message: 'STAFF_ID required. Add X-Staff-ID header with value: staff-alice-123'
+              message: 'Session ID required. Provide via URL parameter (/stream/SESSION_ID), X-User-ID header, or sessionId in body/query.'
             }
           });
         }
         
-        const toolName = params.name;
-        const toolArgs = params.arguments || {};
-        
         try {
-          const result = await processBrainToolCall(toolName, toolArgs, staffId);
+          const result = await processBrainToolCall(toolName, toolArgs, userId);
           res.json({
             jsonrpc: '2.0',
             id: id,
@@ -163,96 +177,44 @@ app.post('/stream', async (req, res) => {
         break;
 
       default:
-        res.json({ jsonrpc: '2.0', id: id, result: {} });
+        res.json({
+          jsonrpc: '2.0',
+          id: id,
+          result: {}
+        });
     }
   } catch (error) {
-    console.error('POST /stream error:', error);
     res.status(500).json({
       jsonrpc: '2.0',
       id: req.body?.id || null,
-      error: { code: -32603, message: 'Internal error' }
+      error: {
+        code: -32603,
+        message: 'Internal error'
+      }
     });
   }
 });
 
-// MCP endpoint for n8n tool calls (Messages Post Endpoint)
-app.post('/mcp/:staffId', async (req, res) => {
+// EXACT COPY FROM WORKING FACEBOOK MCP
+app.post('/mcp/:userId', async (req, res) => {
   try {
-    const { staffId } = req.params;
-    const { method, params, jsonrpc, id } = req.body;
+    const { userId } = req.params;
+    const { method, params } = req.body;
 
-    console.error(`[DEBUG] POST /mcp/${staffId} - Method: ${method}`);
-
-    if (!staffId || staffId === 'undefined') {
-      return res.status(400).json({
-        error: 'STAFF_ID required',
-        message: 'Provide STAFF_ID in URL: /mcp/{STAFF_ID}'
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Invalid session',
+        message: 'User session not found or expired'
       });
     }
 
-    // Handle MCP protocol messages
-    if (jsonrpc && method) {
-      switch (method) {
-        case 'initialize':
-          res.json({
-            jsonrpc: '2.0',
-            id: id,
-            result: {
-              protocolVersion: '2024-11-05',
-              capabilities: { tools: {}, resources: {}, prompts: {} },
-              serverInfo: { name: 'elastic-brain-mcp', version: '1.0.0', staffId }
-            }
-          });
-          return;
-
-        case 'tools/list':
-          const { getBrainToolsList } = await import('./brain-tools.js');
-          const brainTools = getBrainToolsList();
-          
-          res.json({
-            jsonrpc: '2.0',
-            id: id,
-            result: { tools: brainTools }
-          });
-          return;
-
-        case 'tools/call':
-          const toolName = params.name;
-          const toolArgs = params.arguments || {};
-          
-          try {
-            const result = await processBrainToolCall(toolName, toolArgs, staffId);
-            res.json({
-              jsonrpc: '2.0',
-              id: id,
-              result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
-            });
-          } catch (error) {
-            res.json({
-              jsonrpc: '2.0',
-              id: id,
-              error: { code: -32603, message: error instanceof Error ? error.message : 'Unknown error' }
-            });
-          }
-          return;
-      }
-    }
-
-    // Handle direct tool calls
-    if (method) {
-      const response = await processBrainToolCall(method, params || {}, staffId);
-      res.json(response);
-    } else {
-      return res.status(400).json({
-        error: 'Method required',
-        message: 'Provide method field'
-      });
-    }
+    const response = await processBrainToolCall(method, params || {}, userId);
+    res.json(response);
   } catch (error) {
     console.error('MCP request error:', error);
     res.status(500).json({
       error: 'Internal server error',
-      message: 'Failed to process brain request'
+      message: 'Failed to process MCP request'
     });
   }
 });
@@ -268,9 +230,8 @@ export async function startHttpServer(): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
       const httpServer = server.listen(serverConfig.port, '0.0.0.0', () => {
-        console.error(`🧠 Elasticsearch Brain MCP Server started on port ${serverConfig.port}`);
+        console.error(`🧠 Brain MCP Server started on port ${serverConfig.port}`);
         console.error(`📊 Environment: ${serverConfig.environment}`);
-        console.error(`🧠 Staff endpoint: /mcp/{STAFF_ID} and /stream/{STAFF_ID}`);
         console.error(`🛠️ Available tools: 32 brain tools`);
         console.error(`👥 Ready for STAFF_ID routing!`);
         resolve();
@@ -288,7 +249,7 @@ export async function startHttpServer(): Promise<void> {
 
 export async function stopHttpServer(): Promise<void> {
   return new Promise((resolve) => {
-    console.error('🧠 Elasticsearch Brain MCP Server stopped');
+    console.error('🧠 Brain MCP Server stopped');
     resolve();
   });
 }
