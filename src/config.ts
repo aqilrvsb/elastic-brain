@@ -10,11 +10,11 @@ export const serverConfig = {
   }
 };
 
-// Elasticsearch configuration - UPDATE THESE WITH YOUR NEW DEPLOYMENT DETAILS
+// Elasticsearch configuration - PRODUCTION READY
 export const elasticsearchConfig = {
-  node: process.env.ELASTICSEARCH_URL || 'https://YOUR_NEW_DEPLOYMENT_URL:9243',
+  node: process.env.ELASTICSEARCH_URL || 'https://my-elasticsearch-project-d584c1b.ap-southeast-1.aws.elastic.cloud:9243',
   auth: {
-    apiKey: process.env.ELASTICSEARCH_API_KEY || 'YOUR_NEW_API_KEY'
+    apiKey: process.env.ELASTICSEARCH_API_KEY || 'S0NjaFdwY0JZa0RQVUJjS1ZzR2o6X1ZvdTNTUXJKWldOb1ZnZlZySk1JQQ=='
   }
 };
 
