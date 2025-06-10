@@ -68,9 +68,15 @@ app.get('/test-deploy', (req, res) => {
 
 // Stream endpoint for n8n MCP Client compatibility
 app.get('/stream/:staffId?', (req, res) => {
-  // Check if this is a browser request (for testing) vs n8n request
+  // Debug logging for connection attempts
   const userAgent = req.get('User-Agent') || '';
+  const staffId = req.params.staffId;
+  
+  console.error(`[DEBUG] Stream connection attempt: staffId=${staffId}, userAgent=${userAgent.substring(0, 50)}`);
+  
+  // Check if this is a browser request (for testing) vs n8n request
   const isBrowser = userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari') || userAgent.includes('Edge');
+  const isN8N = userAgent.includes('n8n') || userAgent.includes('N8N') || !isBrowser;
   
   // Set headers for SSE (Server-Sent Events)
   res.writeHead(200, {
@@ -81,9 +87,21 @@ app.get('/stream/:staffId?', (req, res) => {
     'Access-Control-Allow-Headers': 'Cache-Control'
   });
 
-  // Send initial connection message
-  const staffId = req.params.staffId;
-  res.write(`data: {"type":"connection","status":"connected","message":"Brain MCP Server stream ready","staffId":"${staffId || 'none'}","tools":32}\n\n`);
+  // Send initial connection message with more details
+  const connectionMessage = {
+    type: "connection",
+    status: "connected", 
+    message: "Brain MCP Server stream ready",
+    staffId: staffId || 'none',
+    tools: 32,
+    clientType: isBrowser ? 'browser' : 'mcp-client',
+    endpoints: {
+      stream: `/stream/${staffId}`,
+      post: `/mcp/${staffId}`
+    }
+  };
+  
+  res.write(`data: ${JSON.stringify(connectionMessage)}\n\n`);
 
   if (isBrowser) {
     // For browser testing: send a few messages then close
@@ -125,7 +143,23 @@ app.post('/stream/:staffId?', async (req, res) => {
     const { jsonrpc, method, params, id } = req.body;
     const staffId = req.params.staffId || 
                    (req.headers['x-staff-id'] as string) || 
+                   req.body.sessionId || 
+                   req.query.sessionId as string ||
                    'default';
+
+    // Debug logging
+    console.error(`[DEBUG] POST /stream request: method=${method}, staffId=${staffId}, hasParams=${!!params}`);
+
+    if (!staffId || staffId === 'default') {
+      return res.status(400).json({
+        jsonrpc: '2.0',
+        id: id,
+        error: {
+          code: -32602,
+          message: 'STAFF_ID required. Provide via URL parameter (/stream/STAFF_ID), X-Staff-ID header, or sessionId in body/query.'
+        }
+      });
+    }
 
     switch (method) {
       case 'initialize':
@@ -154,7 +188,21 @@ app.post('/stream/:staffId?', async (req, res) => {
 
       case 'tools/call':
         try {
-          const result = await processBrainToolCall(params.name, params.arguments || {}, staffId);
+          const toolName = params.name;
+          const toolArgs = params.arguments || {};
+          
+          if (!toolName) {
+            return res.json({
+              jsonrpc: '2.0',
+              id: id,
+              error: {
+                code: -32602,
+                message: 'Tool name is required'
+              }
+            });
+          }
+
+          const result = await processBrainToolCall(toolName, toolArgs, staffId);
           res.json({
             jsonrpc: '2.0',
             id: id,
@@ -181,7 +229,7 @@ app.post('/stream/:staffId?', async (req, res) => {
   }
 });
 
-// Direct MCP endpoint for staff - NO AUTH NEEDED
+// Direct MCP endpoint for staff - NO AUTH NEEDED (matches working Facebook MCP pattern)
 app.post('/mcp/:staffId', async (req, res) => {
   try {
     const { staffId } = req.params;
@@ -190,17 +238,39 @@ app.post('/mcp/:staffId', async (req, res) => {
     if (!staffId || staffId === 'undefined') {
       return res.status(400).json({
         error: 'STAFF_ID required',
-        message: 'Provide STAFF_ID in URL: /mcp/{STAFF_ID}'
+        message: 'Provide STAFF_ID in URL: /mcp/{STAFF_ID}',
+        example: 'POST https://elastic-brain-production.up.railway.app/mcp/staff-alice-123'
       });
     }
 
-    const response = await processBrainToolCall(method, params || {}, staffId);
-    res.json(response);
+    // Handle different request formats (direct tool call vs MCP protocol)
+    if (method) {
+      // Direct tool call format: {"method": "create_entities", "params": {...}}
+      const response = await processBrainToolCall(method, params || {}, staffId);
+      res.json(response);
+    } else {
+      // Check if this is a tool call in the body
+      const toolName = req.body.name || req.body.toolName;
+      const toolArgs = req.body.arguments || req.body.params || req.body.args || {};
+      
+      if (toolName) {
+        const response = await processBrainToolCall(toolName, toolArgs, staffId);
+        res.json(response);
+      } else {
+        return res.status(400).json({
+          error: 'Tool name required',
+          message: 'Provide either "method" or "name" field with the brain tool name',
+          availableFormat1: '{"method": "create_entities", "params": {...}}',
+          availableFormat2: '{"name": "create_entities", "arguments": {...}}'
+        });
+      }
+    }
   } catch (error) {
     console.error('MCP request error:', error);
     res.status(500).json({
       error: 'Internal server error',
-      message: 'Failed to process brain request'
+      message: 'Failed to process brain request',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });// WebSocket server for real-time MCP protocol
