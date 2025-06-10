@@ -24,14 +24,14 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
     switch (toolName) {
       // ===== CORE MEMORY OPERATIONS (8 tools) =====
       case "create_entities":
-        const entities = params.entities;
+        const entityList = params.entities;
         const zone = params.memory_zone || staffId;
         
         // Check for conflicts and invalid entities
         const conflictingEntities = [];
         const invalidEntities = [];
         
-        for (const entity of entities) {
+        for (const entity of entityList) {
           if (!entity.name || entity.name.trim() === '') {
             invalidEntities.push({
               name: "[empty]",
@@ -73,7 +73,7 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
         
         // Create entities
         const createdEntities = [];
-        for (const entity of entities) {
+        for (const entity of entityList) {
           const savedEntity = await kgClient.saveEntity({
             name: entity.name,
             entityType: entity.entityType,
@@ -588,11 +588,11 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
 
       case "zone_stats":
         const statsZone = params.zone || staffId;
-        const entities = await kgClient.getAllEntities(statsZone);
+        const zoneEntities = await kgClient.getAllEntities(statsZone);
         const relations = await kgClient.getAllRelations(statsZone);
         
         const entityTypes = {};
-        entities.forEach(entity => {
+        zoneEntities.forEach(entity => {
           entityTypes[entity.entityType] = (entityTypes[entity.entityType] || 0) + 1;
         });
         
@@ -606,7 +606,7 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
           staffId,
           zone: statsZone,
           stats: {
-            totalEntities: entities.length,
+            totalEntities: zoneEntities.length,
             totalRelations: relations.length,
             entityTypes,
             relationTypes,
@@ -985,7 +985,7 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
         // Prioritize prospects
         const leadData = params.lead_data;
         let score = 0;
-        const scoringFactors = {};
+        const scoringFactors: any = {};
         
         // Budget score (30%)
         const budgetScore = leadData.budget ? Math.min(leadData.budget / 10000, 10) : 5;
