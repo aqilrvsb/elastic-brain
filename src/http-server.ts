@@ -6,6 +6,8 @@ import { createServer } from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
 import { serverConfig, staffBrainManager } from './config.js';
+import { processBrainTool } from './brain-processor.js';
+import { brainTools } from './hybrid-brain-tools.js';
 
 const rateLimiter = new RateLimiterMemory({
   points: serverConfig.rateLimit.maxRequests,
@@ -116,14 +118,16 @@ app.post('/stream/:userId?', async (req, res) => {
         break;
 
       case 'tools/list':
-        const { getBrainToolsList } = await import('./brain-tools.js');
-        const brainTools = getBrainToolsList();
-        
+        // Return the complete hybrid brain tools list for n8n
         res.json({
           jsonrpc: '2.0',
           id: id,
           result: {
-            tools: brainTools
+            tools: brainTools.map(tool => ({
+              name: tool.name,
+              description: tool.description,
+              inputSchema: tool.parameters
+            }))
           }
         });
         break;
