@@ -10,11 +10,11 @@ export const serverConfig = {
   }
 };
 
-// Elasticsearch configuration - PRODUCTION READY (hardcoded to ensure Railway deployment works)
+// Elasticsearch configuration - REAL DEPLOYMENT (Correct URL + API Key)
 export const elasticsearchConfig = {
-  node: 'https://my-elasticsearch-project-d584c1b.ap-southeast-1.aws.elastic.cloud:9243',
+  node: 'https://brain-mcp-elasticsearch.es.ap-southeast-1.aws.found.io:9243',
   auth: {
-    apiKey: 'S0NjaFdwY0JZa0RQVUJjS1ZzR2o6X1ZvdTNTUXJKWldOb1ZnZlZySk1JQQ=='
+    apiKey: 'SWZJZlc1Y0JrNlo1blhWeFd4bzM6Nnlfd2pxVlc4b09YOV80QXoxOWVOQQ=='
   }
 };
 
