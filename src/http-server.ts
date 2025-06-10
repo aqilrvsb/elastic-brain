@@ -66,53 +66,34 @@ app.get('/test-deploy', (req, res) => {
   });
 });
 
-// Stream endpoint for n8n MCP Client compatibility
+// Stream endpoint for n8n MCP Client compatibility (EXACTLY like Facebook MCP)
 app.get('/stream/:staffId?', (req, res) => {
-  try {
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Cache-Control'
-    });
+  // Set headers for SSE (Server-Sent Events) - EXACT SAME as Facebook MCP
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Cache-Control'
+  });
 
-    const staffId = req.params.staffId || 'default';
-    
-    // Send initial connection message
-    res.write(`data: {"type":"connection","status":"connected","message":"Brain MCP ready for staff ${staffId}","staffId":"${staffId}","tools":32,"timestamp":"${new Date().toISOString()}"}\n\n`);
+  // Send initial connection message - SAME PATTERN as Facebook MCP
+  const staffId = req.params.staffId;
+  res.write(`data: {"type":"connection","status":"connected","message":"Brain MCP Server stream ready","staffId":"${staffId || 'none'}"}\n\n`);
 
-    // Send one heartbeat and then let n8n handle the connection
-    const initialHeartbeat = setTimeout(() => {
-      try {
-        res.write(`data: {"type":"heartbeat","timestamp":"${new Date().toISOString()}","staffId":"${staffId}"}\n\n`);
-      } catch (e) {
-        // Connection might be closed
-      }
-    }, 1000);
+  // Keep connection alive with periodic heartbeat - EXACT SAME as Facebook MCP
+  const heartbeat = setInterval(() => {
+    res.write('data: {"type":"heartbeat","timestamp":"' + new Date().toISOString() + '"}\n\n');
+  }, 30000); // Every 30 seconds
 
-    // Cleanup on disconnect
-    req.on('close', () => {
-      clearTimeout(initialHeartbeat);
-    });
+  // Clean up on client disconnect - EXACT SAME as Facebook MCP
+  req.on('close', () => {
+    clearInterval(heartbeat);
+  });
 
-    req.on('aborted', () => {
-      clearTimeout(initialHeartbeat);
-    });
-
-    // End response after 5 seconds to prevent infinite loop
-    setTimeout(() => {
-      try {
-        res.end();
-      } catch (e) {
-        // Response might already be ended
-      }
-    }, 5000);
-
-  } catch (error) {
-    console.error('Stream endpoint error:', error);
-    res.status(500).end();
-  }
+  req.on('aborted', () => {
+    clearInterval(heartbeat);
+  });
 });
 
 // Handle POST requests to /stream (n8n MCP Client compatibility)
@@ -135,15 +116,20 @@ app.post('/stream/:staffId?', async (req, res) => {
           }
         });
         break;      case 'tools/list':
-        const { getBrainToolsList } = await import('./brain-tools.js');
-        const brainTools = getBrainToolsList();
-        
-        console.error(`[DEBUG] Returning ${brainTools.length} brain tools for staff ${staffId}`);
-        
+        // Return brain tools directly (like Facebook MCP pattern)
         res.json({
           jsonrpc: '2.0',
           id: id,
-          result: { tools: brainTools }
+          result: {
+            tools: [
+              { name: 'get_time_utc', description: 'Get current UTC time', inputSchema: { type: 'object', properties: {} } },
+              { name: 'create_entities', description: 'Create entities in brain memory', inputSchema: { type: 'object', properties: { entities: { type: 'array' } }, required: ['entities'] } },
+              { name: 'search_nodes', description: 'Search brain entities with AI', inputSchema: { type: 'object', properties: { query: { type: 'string' }, informationNeeded: { type: 'string' }, reason: { type: 'string' } }, required: ['query', 'informationNeeded', 'reason'] } },
+              { name: 'create_zone', description: 'Create memory zone', inputSchema: { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' } }, required: ['name'] } },
+              { name: 'list_zones', description: 'List memory zones', inputSchema: { type: 'object', properties: {} } },
+              { name: 'inspect_knowledge_graph', description: 'AI-driven knowledge graph inspection', inputSchema: { type: 'object', properties: { information_needed: { type: 'string' }, keywords: { type: 'array' } }, required: ['information_needed', 'keywords'] } }
+            ]
+          }
         });
         break;
 
