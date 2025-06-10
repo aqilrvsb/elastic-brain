@@ -55,7 +55,62 @@ app.get('/', (req, res) => {
       stream: '/stream/{STAFF_ID}'
     }
   });
-});// Test endpoint to verify deployment
+});// Test endpoint to verify all 32 tools are accessible
+app.get('/tools/list/:staffId?', async (req, res) => {
+  try {
+    const { getBrainToolsList } = await import('./brain-tools.js');
+    const brainTools = getBrainToolsList();
+    const staffId = req.params.staffId || 'test-staff';
+    
+    // Group tools by category for better visibility
+    const toolsByCategory = {
+      'Core Memory Operations (8 tools)': brainTools.filter(t => 
+        ['create_entities', 'update_entities', 'delete_entities', 'search_nodes', 'open_nodes', 'add_observations', 'mark_important', 'get_recent'].includes(t.name)
+      ),
+      'Relationship Management (3 tools)': brainTools.filter(t => 
+        ['create_relations', 'delete_relations', 'cross_zone_relations'].includes(t.name)
+      ),
+      'Memory Zone Management (8 tools)': brainTools.filter(t => 
+        ['list_zones', 'create_zone', 'delete_zone', 'copy_entities', 'move_entities', 'merge_zones', 'zone_stats', 'zone_isolation'].includes(t.name)
+      ),
+      'AI-Powered Intelligence (4 tools)': brainTools.filter(t => 
+        ['inspect_knowledge_graph', 'inspect_files', 'smart_search_ranking', 'context_aware_retrieval'].includes(t.name)
+      ),
+      'Sales Intelligence Extensions (9 tools)': brainTools.filter(t => 
+        ['customer_profiling', 'conversation_analysis', 'objection_handling', 'pattern_recognition', 'conversion_tracking', 'response_suggestions', 'lead_scoring', 'pipeline_management', 'performance_analytics'].includes(t.name)
+      ),
+      'Utility Tools (1 tool)': brainTools.filter(t => 
+        ['get_time_utc'].includes(t.name)
+      )
+    };
+    
+    res.json({
+      success: true,
+      staffId,
+      totalTools: brainTools.length,
+      toolsByCategory,
+      allToolNames: brainTools.map(t => t.name),
+      httpStreamEndpoint: `/stream/${staffId}`,
+      httpPostEndpoint: `/mcp/${staffId}`,
+      websocketEndpoint: `/ws/${staffId}`,
+      testExample: {
+        url: `/mcp/${staffId}`,
+        method: 'POST',
+        body: {
+          method: 'get_time_utc',
+          params: {}
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Test endpoint to verify deployment
 app.get('/test-deploy', (req, res) => {
   res.json({
     status: 'deployed',
@@ -178,11 +233,24 @@ app.post('/stream/:staffId?', async (req, res) => {
         const brainTools = getBrainToolsList();
         
         console.error(`[DEBUG] Returning ${brainTools.length} brain tools for staff ${staffId}`);
+        console.error(`[DEBUG] Tools available: ${brainTools.map(t => t.name).join(', ')}`);
         
         res.json({
           jsonrpc: '2.0',
           id: id,
-          result: { tools: brainTools }
+          result: { 
+            tools: brainTools,
+            totalTools: brainTools.length,
+            staffId: staffId,
+            categories: {
+              'Core Memory Operations': 8,
+              'Relationship Management': 3, 
+              'Memory Zone Management': 8,
+              'AI-Powered Intelligence': 4,
+              'Sales Intelligence Extensions': 9,
+              'Utility Tools': 1
+            }
+          }
         });
         break;
 
@@ -311,10 +379,17 @@ wss.on('connection', async (ws: WebSocket, req) => {
           const { getBrainToolsList } = await import('./brain-tools.js');
           const brainTools = getBrainToolsList();
           
+          console.error(`[DEBUG] WebSocket tools/list: Returning ${brainTools.length} brain tools for staff ${staffId}`);
+          
           const response = {
             jsonrpc: '2.0',
             id: message.id,
-            result: { tools: brainTools }
+            result: { 
+              tools: brainTools,
+              totalTools: brainTools.length,
+              staffId: staffId,
+              transport: 'WebSocket'
+            }
           };
           ws.send(JSON.stringify(response));
           return;
