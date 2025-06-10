@@ -195,6 +195,62 @@ function mockAIAnalysis(type: string, data: any) {
         confidence: 0.80,
         timestamp
       };
+    case 'closing_signals_analysis':
+      return {
+        signalStrength: 'high',
+        closeReadiness: data.readiness || 0.75,
+        urgencyFactors: ['timeline_mentioned', 'budget_confirmed'],
+        confidence: 0.88,
+        timestamp
+      };
+    case 'closing_objection_analysis':
+      return {
+        objectionSeverity: 'medium',
+        closeImpact: 'manageable',
+        personality: data.customer?.personality || 'analytical',
+        recommendedApproach: data.closingApproach || 'value_based',
+        confidence: 0.85,
+        timestamp
+      };
+    case 'deal_probability':
+      return {
+        probability: 0.78,
+        factors: ['strong_interest', 'budget_fit', 'timeline_match'],
+        confidence: 0.83,
+        timestamp
+      };
+    case 'deal_size':
+      return {
+        estimatedValue: 25000,
+        confidenceRange: '20k-30k',
+        factors: ['company_size', 'use_case_scope'],
+        confidence: 0.75,
+        timestamp
+      };
+    case 'time_prediction':
+      return {
+        estimatedDays: 14,
+        range: '10-21 days',
+        factors: ['decision_process', 'urgency_level'],
+        confidence: 0.72,
+        timestamp
+      };
+    case 'risk_factors':
+      return {
+        risks: ['competitor_evaluation', 'budget_approval'],
+        severity: 'medium',
+        mitigation: 'address_differentiation',
+        confidence: 0.68,
+        timestamp
+      };
+    case 'success_triggers':
+      return {
+        triggers: ['roi_demonstration', 'stakeholder_buy_in'],
+        priority: 'high',
+        timeline: 'immediate',
+        confidence: 0.84,
+        timestamp
+      };
     default:
       return { analysis: 'basic_analysis', confidence: 0.70, timestamp };
   }
@@ -420,7 +476,47 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
         };
 
       case "get_ai_objection_responses":
-        // Search for similar objection patterns
+        // ENHANCED: Closing-specific objection handling
+        const closingObjectionResponses = {
+          'price_too_high': {
+            approach: 'roi_value_close',
+            responses: [
+              'I understand price is important. Let me show you the ROI calculation - you\'ll actually save money in 6 months. Should we start with a pilot to prove the value?',
+              'The investment pays for itself quickly. Would you prefer to structure payments monthly to make it easier on your budget?'
+            ],
+            nextStep: 'roi_demonstration',
+            closeType: 'assumptive_close'
+          },
+          'need_to_think': {
+            approach: 'urgency_gentle_close',
+            responses: [
+              'I completely understand. What specific concerns do you need to think through? I can address those right now.',
+              'That makes sense. While you\'re thinking, would it help if I reserved your spot for this quarter\'s implementation?'
+            ],
+            nextStep: 'address_concerns',
+            closeType: 'trial_close'
+          },
+          'compare_competitors': {
+            approach: 'unique_value_close',
+            responses: [
+              'Smart approach to compare. Here\'s what makes us different... Based on your needs, we\'re the only solution that can deliver X. Shall we move forward?',
+              'I\'d be happy to help you compare. Most clients choose us because of our unique Y feature. Would you like to secure your implementation date while you finalize?'
+            ],
+            nextStep: 'differentiation_demo',
+            closeType: 'assumptive_close'
+          },
+          'no_budget': {
+            approach: 'payment_terms_close',
+            responses: [
+              'Budget timing can be tricky. We have flexible payment options. What if we could start with a phased approach that fits your current budget?',
+              'I understand budget constraints. Would monthly payments starting next quarter work better for you?'
+            ],
+            nextStep: 'payment_options',
+            closeType: 'alternative_close'
+          }
+        };
+
+        // Search for similar objection patterns in shared intelligence
         const objectionQuery = {
           query: {
             bool: {
@@ -434,25 +530,41 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
         };
         
         const objectionPatterns = await executeElasticsearchOperation('search', 'brain-shared-intelligence', objectionQuery);
-        const aiAnalysis = mockAIAnalysis('objection_analysis', {
+        
+        // Get closing-specific objection response
+        const objectionKey = params.objectionType || 'general';
+        const closingResponse = closingObjectionResponses[objectionKey] || {
+          approach: 'general_close',
+          responses: ['Let me address that concern and see how we can move forward together.'],
+          nextStep: 'clarification',
+          closeType: 'soft_close'
+        };
+
+        const aiAnalysis = mockAIAnalysis('closing_objection_analysis', {
           objection: params.objectionText,
           customer: params.customerProfile,
-          context: params.dealContext
+          context: params.dealContext,
+          closingApproach: closingResponse.approach
         });
         
         return {
           success: true,
-          message: '🎯 AI-powered objection response with contextual analysis',
+          message: '🎯 Closing-focused AI objection response with next steps',
+          objectionType: params.objectionType,
+          closingApproach: closingResponse.approach,
           aiAnalysis: aiAnalysis,
-          responses: [
-            {
-              response: `Based on AI analysis, I understand your concern about ${params.objectionType}. Let me address this specifically...`,
-              successProbability: 0.85,
-              approach: 'contextual_addressing',
-              personalityMatch: aiAnalysis.personality || 'analytical'
-            }
-          ],
-          historicalPatterns: objectionPatterns?.hits?.hits || []
+          responses: closingResponse.responses.map((response, index) => ({
+            response: response,
+            successProbability: 0.85 - (index * 0.05),
+            approach: closingResponse.approach,
+            personalityMatch: aiAnalysis.personality || 'analytical',
+            closeType: closingResponse.closeType,
+            nextStep: closingResponse.nextStep
+          })),
+          recommendedNextAction: closingResponse.nextStep,
+          closeReadiness: params.objectionType === 'price_too_high' ? 'high' : 'medium',
+          historicalPatterns: objectionPatterns?.hits?.hits || [],
+          closingIntelligence: true
         };
 
       // ==========================================
@@ -485,38 +597,188 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
         };
 
       case "predict_conversation_outcome":
+        // ENHANCED: Closing-focused conversation outcome prediction
+        const conversationHistory = params.conversationHistory || [];
+        const currentStage = params.currentStage || 'discovery';
+        
+        // Calculate closing probability factors
+        const closingFactors = {
+          budget_status: 0.3,        // 30% weight
+          timeline_urgency: 0.25,    // 25% weight  
+          decision_authority: 0.2,   // 20% weight
+          competitor_status: 0.15,   // 15% weight
+          relationship_strength: 0.1 // 10% weight
+        };
+
+        // Analyze conversation for closing indicators
+        const closingIndicators = {
+          budget_confirmed: conversationHistory.some(msg => 
+            msg.content?.toLowerCase().includes('budget') || 
+            msg.content?.toLowerCase().includes('afford')
+          ),
+          timeline_set: conversationHistory.some(msg =>
+            msg.content?.toLowerCase().includes('timeline') ||
+            msg.content?.toLowerCase().includes('when')
+          ),
+          authority_identified: conversationHistory.some(msg =>
+            msg.content?.toLowerCase().includes('decision') ||
+            msg.content?.toLowerCase().includes('approve')
+          ),
+          competitor_mentioned: conversationHistory.some(msg =>
+            msg.content?.toLowerCase().includes('other') ||
+            msg.content?.toLowerCase().includes('compare')
+          )
+        };
+
+        // Calculate close probability
+        let closeProbability = 0.5; // Base probability
+        
+        if (closingIndicators.budget_confirmed) closeProbability += 0.25;
+        if (closingIndicators.timeline_set) closeProbability += 0.20;
+        if (closingIndicators.authority_identified) closeProbability += 0.15;
+        if (!closingIndicators.competitor_mentioned) closeProbability += 0.10;
+
+        // Adjust based on conversation stage
+        const stageMultipliers = {
+          'discovery': 0.3,
+          'qualification': 0.5,
+          'presentation': 0.7,
+          'negotiation': 0.85,
+          'closing': 0.95
+        };
+        closeProbability *= (stageMultipliers[currentStage] || 0.5);
+        closeProbability = Math.min(closeProbability, 0.95); // Cap at 95%
+
+        // Determine recommended next action
+        let nextAction = 'continue_discovery';
+        let closingTimeframe = '2-4 weeks';
+        
+        if (closeProbability >= 0.8) {
+          nextAction = 'proceed_to_close';
+          closingTimeframe = '1-3 days';
+        } else if (closeProbability >= 0.6) {
+          nextAction = 'trial_close';
+          closingTimeframe = '1 week';
+        } else if (closeProbability >= 0.4) {
+          nextAction = 'qualify_further';
+          closingTimeframe = '2 weeks';
+        }
+
         const predictionAnalysis = {
+          closeProbability: closeProbability,
           dealProbability: mockAIAnalysis('deal_probability', params.conversationData),
-          timeToClose: mockAIAnalysis('time_prediction', params.conversationData),
+          timeToClose: closingTimeframe,
           dealSize: mockAIAnalysis('deal_size', params.conversationData),
-          riskFactors: mockAIAnalysis('risk_factors', params.conversationData),
-          successTriggers: mockAIAnalysis('success_triggers', params.conversationData)
+          riskFactors: closingIndicators.competitor_mentioned ? ['competitor_evaluation'] : [],
+          successTriggers: Object.keys(closingIndicators).filter(key => closingIndicators[key]),
+          closingReadiness: closeProbability >= 0.6 ? 'ready' : 'not_ready'
         };
         
         return {
           success: true,
-          message: '🔮 AI conversation outcome prediction',
+          message: '🔮 Enhanced closing-focused conversation outcome prediction',
+          closeProbability: closeProbability,
+          closingTimeframe: closingTimeframe,
+          recommendedNextAction: nextAction,
+          closingReadiness: predictionAnalysis.closingReadiness,
+          closingIndicators: closingIndicators,
           predictions: predictionAnalysis,
-          confidence: 0.78,
-          timeframe: params.timeframe || '1_week'
+          confidence: 0.82,
+          conversationStage: currentStage,
+          closingIntelligence: true
         };
 
       case "detect_buying_signals":
-        const signalAnalysis = mockAIAnalysis('buying_signals', {
+        // ENHANCED: Closing-specific buying signals detection
+        const closingSignals = {
+          // High-priority closing signals
+          immediate_close_signals: [
+            'what\'s the next step',
+            'how do we get started',
+            'what\'s the timeline',
+            'send me the contract',
+            'who do i need to involve',
+            'what\'s the process'
+          ],
+          
+          // Budget/Authority signals
+          budget_authority_signals: [
+            'i have budget',
+            'i can approve',
+            'within our budget',
+            'i\'m the decision maker',
+            'let me check with finance'
+          ],
+          
+          // Urgency signals
+          urgency_signals: [
+            'need this asap',
+            'by end of month',
+            'urgent need',
+            'quarter end',
+            'deadline approaching'
+          ],
+          
+          // Competitor elimination signals
+          competitor_signals: [
+            'better than',
+            'prefer your solution',
+            'going with you',
+            'chosen your product'
+          ]
+        };
+
+        const messageText = (params.customerMessage || params.conversationText || '').toLowerCase();
+        const detectedSignals = [];
+        let closeReadinessScore = 0;
+        let urgencyLevel = 'low';
+        let recommendedAction = 'continue_nurturing';
+
+        // Analyze for closing signals
+        Object.entries(closingSignals).forEach(([category, signals]) => {
+          signals.forEach(signal => {
+            if (messageText.includes(signal.toLowerCase())) {
+              detectedSignals.push({
+                signal: signal,
+                category: category,
+                strength: category === 'immediate_close_signals' ? 'high' : 'medium'
+              });
+              
+              // Increase close readiness score
+              closeReadinessScore += category === 'immediate_close_signals' ? 0.3 : 0.15;
+            }
+          });
+        });
+
+        // Determine urgency and recommended action
+        if (closeReadinessScore >= 0.6) {
+          urgencyLevel = 'high';
+          recommendedAction = 'proceed_to_close';
+        } else if (closeReadinessScore >= 0.3) {
+          urgencyLevel = 'medium';
+          recommendedAction = 'trial_close';
+        }
+
+        const signalAnalysis = mockAIAnalysis('closing_signals_analysis', {
           message: params.customerMessage,
           history: params.conversationHistory,
-          profile: params.customerProfile
+          profile: params.customerProfile,
+          signals: detectedSignals,
+          readiness: closeReadinessScore
         });
         
         return {
           success: true,
-          message: '📈 Real-time buying signal detection',
-          detectedSignals: [
-            { type: 'budget_questions', confidence: 0.82, strength: 'strong' },
-            { type: 'timeline_interest', confidence: 0.67, strength: 'medium' }
-          ],
-          overallSignalStrength: 'strong',
-          aiAnalysis: signalAnalysis
+          message: '🎯 Enhanced closing-focused buying signals detected',
+          detectedSignals: detectedSignals,
+          closeReadinessScore: Math.min(closeReadinessScore, 1.0),
+          urgencyLevel: urgencyLevel,
+          recommendedAction: recommendedAction,
+          closingMoment: closeReadinessScore >= 0.6 ? 'NOW' : 'SOON',
+          nextBestAction: closeReadinessScore >= 0.6 ? 'assumptive_close' : 'build_urgency',
+          overallSignalStrength: urgencyLevel,
+          aiAnalysis: signalAnalysis,
+          closingIntelligence: true
         };
 
       // ==========================================
@@ -763,6 +1025,164 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
             improvements: 'Focus on timing optimization'
           } : null,
           elasticsearchData: statsResult?.aggregations || null
+        };
+
+      // ==========================================
+      // CLOSING MASTERY TOOLS (New Category)
+      // ==========================================
+
+      case "track_closing_readiness":
+        const closingProfile = {
+          zone: 'private',
+          entityType: 'closing_profile',
+          data: {
+            customerId: params.customerId,
+            closingFactors: params.closingFactors,
+            conversationStage: params.conversationStage,
+            lastUpdated: new Date().toISOString()
+          },
+          closingScore: 0,
+          staffId,
+          timestamp: new Date().toISOString()
+        };
+
+        // Calculate closing readiness score
+        const factorWeights = {
+          budget: { confirmed: 0.3, pending: 0.15, unknown: 0.0 },
+          timeline: { urgent: 0.25, normal: 0.15, flexible: 0.05 },
+          authority: { decision_maker: 0.25, influencer: 0.15, user: 0.05 },
+          need: { critical: 0.2, important: 0.1, nice_to_have: 0.0 }
+        };
+
+        Object.entries(params.closingFactors).forEach(([factor, value]) => {
+          if (factorWeights[factor] && factorWeights[factor][value]) {
+            closingProfile.closingScore += factorWeights[factor][value];
+          }
+        });
+
+        const profileResult = await executeElasticsearchOperation('createDocument', `brain-private-${staffId}`, closingProfile, staffId);
+
+        return {
+          success: true,
+          message: '📊 Customer closing readiness tracked and analyzed',
+          customerId: params.customerId,
+          closingScore: Math.round(closingProfile.closingScore * 100) / 100,
+          readinessLevel: closingProfile.closingScore >= 0.7 ? 'HIGH' : closingProfile.closingScore >= 0.4 ? 'MEDIUM' : 'LOW',
+          recommendedAction: closingProfile.closingScore >= 0.7 ? 'PROCEED_TO_CLOSE' : 'QUALIFY_FURTHER',
+          profileId: profileResult?._id,
+          closingFactors: params.closingFactors,
+          conversationStage: params.conversationStage
+        };
+
+      case "get_closing_recommendations":
+        // Get customer closing profile
+        const customerQuery = {
+          query: {
+            bool: {
+              must: [
+                { term: { staffId: staffId }},
+                { term: { 'data.customerId': params.customerId }}
+              ]
+            }
+          },
+          size: 1
+        };
+
+        const customerProfile = await executeElasticsearchOperation('search', `brain-private-${staffId}`, customerQuery);
+        const profileData = customerProfile?.hits?.hits?.[0]?._source;
+
+        // Generate closing recommendations based on profile and conversation
+        const closingRecommendations = {
+          recommendedApproach: 'assumptive_close',
+          closingScript: '',
+          timing: 'immediate',
+          objectionHandling: [],
+          successProbability: 0.75
+        };
+
+        // Customize based on customer profile
+        if (profileData?.closingScore >= 0.7) {
+          closingRecommendations.recommendedApproach = 'direct_close';
+          closingRecommendations.closingScript = 'Based on everything we\'ve discussed, it sounds like this is exactly what you need. Shall we get the paperwork started?';
+          closingRecommendations.timing = 'now';
+          closingRecommendations.successProbability = 0.85;
+        } else if (profileData?.closingScore >= 0.4) {
+          closingRecommendations.recommendedApproach = 'trial_close';
+          closingRecommendations.closingScript = 'How do you feel about moving forward with this solution?';
+          closingRecommendations.timing = 'after_addressing_concerns';
+          closingRecommendations.successProbability = 0.65;
+        } else {
+          closingRecommendations.recommendedApproach = 'qualification_needed';
+          closingRecommendations.closingScript = 'Let me understand your situation better. What would need to happen for you to move forward?';
+          closingRecommendations.timing = 'after_qualification';
+          closingRecommendations.successProbability = 0.45;
+        }
+
+        return {
+          success: true,
+          message: '🎯 AI-powered closing recommendations generated',
+          customerId: params.customerId,
+          closingScore: profileData?.closingScore || 0,
+          recommendations: closingRecommendations,
+          customerProfile: profileData?.data || {},
+          conversationAnalysis: params.conversationHistory ? 'analyzed' : 'not_provided',
+          competitorRisk: params.competitorMentions?.length > 0 ? 'high' : 'low'
+        };
+
+      case "analyze_closing_outcome":
+        const outcomeDoc = {
+          zone: 'shared',
+          patternType: 'closing_outcome',
+          extractedPattern: {
+            approach: params.closingAttempt.approach,
+            timing: params.closingAttempt.timing,
+            outcome: params.outcome,
+            objections: params.closingAttempt.objections || [],
+            customerResponse: params.closingAttempt.customerResponse
+          },
+          anonymizedData: {
+            industry: 'anonymized',
+            outcome: params.outcome,
+            approach: params.closingAttempt.approach,
+            objection_count: params.closingAttempt.objections?.length || 0
+          },
+          metadata: {
+            confidence: 0.92,
+            learning_value: params.outcome === 'deal_closed' ? 'high' : 'medium',
+            contribution: new Date().toISOString()
+          },
+          timestamp: new Date().toISOString()
+        };
+
+        if (params.updateSharedIntelligence) {
+          await executeElasticsearchOperation('createDocument', 'brain-shared-intelligence', outcomeDoc, staffId);
+        }
+
+        // Generate learning insights
+        const learningInsights = {
+          pattern_extracted: true,
+          success_factors: params.outcome === 'deal_closed' ? [
+            'effective_timing',
+            'appropriate_approach',
+            'objection_handling'
+          ] : [],
+          improvement_areas: params.outcome !== 'deal_closed' ? [
+            'timing_optimization',
+            'approach_refinement', 
+            'objection_preparation'
+          ] : [],
+          shared_intelligence: params.updateSharedIntelligence
+        };
+
+        return {
+          success: true,
+          message: '📈 Closing outcome analyzed and learning patterns extracted',
+          customerId: params.customerId,
+          outcome: params.outcome,
+          learningInsights: learningInsights,
+          patternShared: params.updateSharedIntelligence,
+          improvementRecommendations: learningInsights.improvement_areas,
+          successFactors: learningInsights.success_factors
         };
 
       // ==========================================

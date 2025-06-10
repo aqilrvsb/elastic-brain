@@ -895,10 +895,86 @@ const ultimateHybridTools = [
         actionableInsights: { type: "boolean", default: true, description: "Include actionable insights" }
       }
     }
+  },
+
+  // ==========================================
+  // CLOSING MASTERY TOOLS (New Category)
+  // ==========================================
+
+  {
+    name: "track_closing_readiness",
+    description: "Track and analyze customer closing readiness with AI-powered scoring",
+    inputSchema: {
+      type: "object",
+      properties: {
+        customerId: { type: "string", description: "Customer identifier" },
+        closingFactors: {
+          type: "object",
+          properties: {
+            budget: { type: "string", enum: ["confirmed", "pending", "unknown"], description: "Budget status" },
+            timeline: { type: "string", enum: ["urgent", "normal", "flexible"], description: "Timeline urgency" },
+            authority: { type: "string", enum: ["decision_maker", "influencer", "user"], description: "Decision authority" },
+            need: { type: "string", enum: ["critical", "important", "nice_to_have"], description: "Need urgency" }
+          }
+        },
+        conversationStage: { 
+          type: "string", 
+          enum: ["discovery", "qualification", "presentation", "negotiation", "closing"],
+          description: "Current conversation stage" 
+        },
+        updateClosingProfile: { type: "boolean", default: true, description: "Update customer closing profile" }
+      },
+      required: ["customerId", "closingFactors"]
+    }
+  },
+
+  {
+    name: "get_closing_recommendations",
+    description: "AI-powered closing recommendations based on customer profile and conversation analysis",
+    inputSchema: {
+      type: "object",
+      properties: {
+        customerId: { type: "string", description: "Customer identifier" },
+        conversationHistory: { type: "array", items: { type: "object" }, description: "Recent conversation messages" },
+        currentObjections: { type: "array", items: { type: "string" }, description: "Current customer objections" },
+        competitorMentions: { type: "array", items: { type: "string" }, description: "Mentioned competitors" },
+        includeClosingScript: { type: "boolean", default: true, description: "Include suggested closing script" },
+        personalizeForCustomer: { type: "boolean", default: true, description: "Personalize for customer profile" }
+      },
+      required: ["customerId"]
+    }
+  },
+
+  {
+    name: "analyze_closing_outcome",
+    description: "Analyze closing attempts and outcomes to improve future closing strategies",
+    inputSchema: {
+      type: "object",
+      properties: {
+        customerId: { type: "string", description: "Customer identifier" },
+        closingAttempt: {
+          type: "object",
+          properties: {
+            approach: { type: "string", description: "Closing approach used" },
+            timing: { type: "string", description: "When the close was attempted" },
+            customerResponse: { type: "string", description: "Customer response to closing" },
+            objections: { type: "array", items: { type: "string" }, description: "Objections raised" }
+          }
+        },
+        outcome: { 
+          type: "string", 
+          enum: ["deal_closed", "deal_lost", "objection_raised", "follow_up_needed"],
+          description: "Closing attempt outcome" 
+        },
+        learnFromOutcome: { type: "boolean", default: true, description: "Extract learning patterns" },
+        updateSharedIntelligence: { type: "boolean", default: true, description: "Share anonymous patterns" }
+      },
+      required: ["customerId", "closingAttempt", "outcome"]
+    }
   }
 ];
 
-// Export only the ultimate hybrid tools - complete solution (NOW 32 TOOLS!)
+// Export only the ultimate hybrid tools - complete solution (NOW 35 TOOLS!)
 export const brainTools = ultimateHybridTools;
 
 export default brainTools;
