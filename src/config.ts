@@ -12,9 +12,9 @@ export const serverConfig = {
 
 // Elasticsearch configuration - REAL DEPLOYMENT (Correct URL + API Key)
 export const elasticsearchConfig = {
-  node: 'https://brain-mcp-elasticsearch.es.ap-southeast-1.aws.found.io:9243',
+  node: 'https://my-elasticsearch-project-d584c1b.ap-southeast-1.aws.elastic.cloud:9243',
   auth: {
-    apiKey: 'SWZJZlc1Y0JrNlo1blhWeFd4bzM6Nnlfd2pxVlc4b09YOV80QXoxOWVOQQ=='
+    apiKey: 'S0NjaFdwY0JZa0RQVUJjS1ZzR2o6X1ZvdTNTUXJKWldOb1ZnZlZySk1JQQ=='
   }
 };
 
