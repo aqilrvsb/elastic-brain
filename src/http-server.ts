@@ -393,7 +393,9 @@ app.post('/stream/:staffId?', async (req, res) => {
             serverInfo: { name: 'elastic-brain-mcp', version: '1.0.0', staffId }
           }
         });
-        break;      case 'tools/list':
+        break;
+
+      case 'tools/list':
         // Import and return all 32 brain tools (like original implementation)
         const { getBrainToolsList } = await import('./brain-tools.js');
         const brainTools = getBrainToolsList();
