@@ -243,11 +243,11 @@ let httpServer: any = null;
 export async function startHttpServer(): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
-      httpServer = server.listen(serverConfig.port, () => {
+      httpServer = server.listen(serverConfig.port, '0.0.0.0', () => {
         console.error(`🧠 Elasticsearch Brain MCP Server started on port ${serverConfig.port}`);
         console.error(`📊 Environment: ${serverConfig.environment}`);
-        console.error(`🔗 Health check: http://localhost:${serverConfig.port}/health`);
-        console.error(`🧠 Staff endpoint: http://localhost:${serverConfig.port}/mcp/{STAFF_ID}`);
+        console.error(`🔗 Health check: External access enabled`);
+        console.error(`🧠 Staff endpoint: /mcp/{STAFF_ID}`);
         console.error(`🛠️ Available tools: 32 brain tools`);
         console.error(`👥 Ready for STAFF_ID routing!`);
         resolve();

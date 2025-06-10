@@ -6,7 +6,8 @@ const main = async () => {
   try {
     console.error('🧠 Starting Elasticsearch Brain MCP Server...');
     console.error(`📊 Environment: ${serverConfig.environment}`);
-    console.error(`🌐 Port: ${serverConfig.port}`);
+    console.error(`🌐 Railway PORT env: ${process.env.PORT || 'NOT SET'}`);
+    console.error(`🔌 Configured Port: ${serverConfig.port}`);
     console.error(`👥 Max connections: ${serverConfig.maxConnections}`);
     console.error(`🧠 Brain tools: 32 available`);
     
