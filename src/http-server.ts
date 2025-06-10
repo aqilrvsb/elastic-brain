@@ -126,7 +126,7 @@ app.post('/stream/:userId?', async (req, res) => {
             tools: brainTools.map(tool => ({
               name: tool.name,
               description: tool.description,
-              inputSchema: tool.parameters
+              inputSchema: tool.inputSchema
             }))
           }
         });

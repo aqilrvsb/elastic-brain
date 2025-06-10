@@ -16,7 +16,7 @@ const hybridLearningTools = [
   {
     name: "create_private_entities",
     description: "Create entities in marketer's private zone (customers, conversations, deals)",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         entityType: {
@@ -41,7 +41,7 @@ const hybridLearningTools = [
   {
     name: "search_private_data",
     description: "Search marketer's private customer data, conversations, and deals",
-    parameters: {
+    inputSchema: {
       type: "object", 
       properties: {
         query: { type: "string", description: "Search query for private data" },
@@ -59,7 +59,7 @@ const hybridLearningTools = [
   {
     name: "update_customer_profile",
     description: "Update customer information in marketer's private zone",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         customerId: { type: "string", description: "Customer identifier" },
@@ -73,7 +73,7 @@ const hybridLearningTools = [
   {
     name: "log_conversation",
     description: "Log WhatsApp conversation in marketer's private zone",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         customerId: { type: "string", description: "Customer this conversation is with" },
@@ -110,7 +110,7 @@ const hybridLearningTools = [
   {
     name: "extract_sales_intelligence",
     description: "Extract anonymized sales patterns from private conversation for shared learning",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         conversationId: { type: "string", description: "Private conversation to analyze" },
@@ -128,7 +128,7 @@ const hybridLearningTools = [
   {
     name: "query_shared_intelligence",
     description: "Get sales intelligence from shared learning across all marketers",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         situation: { type: "string", description: "Current sales situation or objection" },
@@ -151,7 +151,7 @@ const hybridLearningTools = [
   {
     name: "get_objection_responses",
     description: "Get proven responses for specific objections from shared intelligence",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         objectionType: {
@@ -169,7 +169,7 @@ const hybridLearningTools = [
   {
     name: "suggest_response_template",
     description: "Get high-converting message templates from shared intelligence",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         messageType: {
@@ -188,7 +188,7 @@ const hybridLearningTools = [
   {
     name: "analyze_conversation_patterns",
     description: "Analyze conversation for patterns and get intelligence-based suggestions",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         conversationText: { type: "string", description: "Recent conversation text to analyze" },
@@ -206,7 +206,7 @@ const hybridLearningTools = [
   {
     name: "predict_success_probability",
     description: "Predict likelihood of success for proposed approach using shared intelligence",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         proposedApproach: { type: "string", description: "Sales approach or message being considered" },
@@ -220,7 +220,7 @@ const hybridLearningTools = [
   {
     name: "get_timing_recommendations",
     description: "Get optimal timing for follow-ups based on shared intelligence",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         lastInteraction: { type: "string", description: "When and how you last contacted customer" },
@@ -243,7 +243,7 @@ const hybridLearningTools = [
   {
     name: "contribute_success_story",
     description: "Contribute anonymized success story to shared intelligence",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         successType: {
@@ -264,7 +264,7 @@ const hybridLearningTools = [
   {
     name: "report_failed_approach",
     description: "Report approach that didn't work to help improve shared intelligence",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         failedApproach: { type: "string", description: "What was tried that didn't work" },
@@ -279,7 +279,7 @@ const hybridLearningTools = [
   {
     name: "get_intelligence_stats",
     description: "Get statistics about shared intelligence learning and effectiveness",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         statsType: {
@@ -304,7 +304,7 @@ const hybridLearningTools = [
   {
     name: "audit_data_privacy",
     description: "Audit what data is private vs shared for compliance",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         auditType: {
@@ -321,7 +321,7 @@ const hybridLearningTools = [
   {
     name: "anonymize_conversation",
     description: "Convert private conversation to anonymized intelligence data",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         conversationId: { type: "string", description: "Private conversation to anonymize" },
@@ -345,7 +345,7 @@ const hybridLearningTools = [
   {
     name: "get_zone_info",
     description: "Get information about private zone and shared intelligence access",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         infoType: {
@@ -361,7 +361,7 @@ const hybridLearningTools = [
   {
     name: "get_time_utc",
     description: "Get current UTC time - useful for timestamping conversations and activities",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: {
         format: {
