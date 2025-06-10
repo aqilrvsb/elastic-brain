@@ -196,6 +196,11 @@ app.post('/stream/:staffId?', async (req, res) => {
         break;
 
       case 'tools/call':
+        // DEBUG: This should NOT happen if n8n is configured correctly
+        console.error(`[ERROR] Tool call received on /stream endpoint instead of /mcp!`);
+        console.error(`[ERROR] Tool: ${params.name}, StaffId: ${staffId}`);
+        console.error(`[ERROR] n8n should send tool calls to /mcp/${staffId}, not /stream`);
+        
         // Extract staffId dynamically from multiple sources - WORKING PATTERN
         const toolName = params.name;
         const toolArgs = params.arguments || {};
@@ -398,6 +403,10 @@ app.post('/mcp/:staffId', async (req, res) => {
   try {
     const { staffId } = req.params;
     const { method, params, jsonrpc, id } = req.body;
+
+    // DEBUG: Log all requests to /mcp endpoint
+    console.error(`[DEBUG] POST /mcp/${staffId} - Method: ${method}, JSONRPC: ${jsonrpc}, ID: ${id}`);
+    console.error(`[DEBUG] Request body:`, JSON.stringify(req.body, null, 2));
 
     if (!staffId || staffId === 'undefined') {
       return res.status(400).json({
