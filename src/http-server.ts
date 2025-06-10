@@ -118,6 +118,18 @@ app.post('/stream/:userId?', async (req, res) => {
         });
         break;
 
+      case 'notifications/initialized':
+        // Handle n8n MCP client initialization notification
+        res.json({
+          jsonrpc: '2.0',
+          id: id,
+          result: {
+            acknowledged: true,
+            message: 'Brain MCP server initialized successfully'
+          }
+        });
+        break;
+
       case 'tools/list':
         // Return the complete hybrid brain tools list for n8n
         res.json({
@@ -228,6 +240,19 @@ app.post('/stream/:userId/:nicheId', async (req, res) => {
               version: '1.0.0',
               nicheId: nicheId
             }
+          }
+        });
+        break;
+
+      case 'notifications/initialized':
+        // Handle n8n MCP client initialization notification
+        res.json({
+          jsonrpc: '2.0',
+          id: id,
+          result: {
+            acknowledged: true,
+            nicheId: nicheId,
+            message: `Niche brain ${nicheId} initialized successfully`
           }
         });
         break;
