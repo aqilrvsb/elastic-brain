@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import { createServer } from 'http';
-import WebSocket from 'ws';
+import WebSocket, { WebSocketServer } from 'ws';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
 import { serverConfig, staffBrainManager } from './config.js';
 
@@ -152,7 +152,7 @@ app.post('/mcp/:staffId', async (req, res) => {
     });
   }
 });// WebSocket server for real-time MCP protocol
-const wss = new (WebSocket as any).Server({ 
+const wss = new WebSocketServer({ 
   server,
   path: '/ws',
   maxPayload: 16 * 1024 * 1024
