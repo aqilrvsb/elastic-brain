@@ -22,10 +22,76 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
 
   try {
     switch (toolName) {
-      // ===== CORE MEMORY OPERATIONS (8 tools) =====
+      // ===== WORKING TOOLS =====
+      case "get_time_utc":
+        const currentTime = new Date();
+        return {
+          success: true,
+          staffId,
+          utcTime: currentTime.toISOString(),
+          formattedTime: currentTime.toISOString().replace('T', ' ').substring(0, 19),
+          timestamp: currentTime.getTime()
+        };
+
       case "create_entities":
+        // Simple implementation using available methods
         const entityList = params.entities;
         const zone = params.memory_zone || staffId;
+        
+        try {
+          const createdEntities = [];
+          for (const entity of entityList) {
+            const savedEntity = await kgClient.saveEntity({
+              name: entity.name,
+              entityType: entity.entityType,
+              observations: entity.observations || [],
+              relevanceScore: 1.0
+            }, zone);
+            createdEntities.push(savedEntity);
+          }
+          
+          return {
+            success: true,
+            staffId,
+            zone,
+            entities: createdEntities.map(e => ({
+              name: e.name,
+              entityType: e.entityType,
+              observations: e.observations
+            }))
+          };
+        } catch (error) {
+          return {
+            success: false,
+            staffId,
+            error: `Failed to create entities: ${error.message}`
+          };
+        }
+
+      case "search_nodes":
+        // Simple implementation using available search method
+        try {
+          const searchZone = params.memory_zone || staffId;
+          const searchResults = await kgClient.search({
+            query: params.query,
+            zone: searchZone,
+            limit: params.limit || 20
+          });
+          
+          return {
+            success: true,
+            staffId,
+            zone: searchZone,
+            entities: searchResults.entities || [],
+            totalResults: searchResults.entities?.length || 0
+          };
+        } catch (error) {
+          return {
+            success: false,
+            staffId,
+            error: `Search failed: ${error.message}`
+          };
+        }
         
         // Check for conflicts and invalid entities
         const conflictingEntities = [];
@@ -1176,13 +1242,13 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
 
       // ===== UTILITY TOOLS =====
       case "get_time_utc":
-        const now = new Date();
+        const timeNow = new Date();
         return {
           success: true,
           staffId,
-          utcTime: now.toISOString(),
-          formattedTime: now.toISOString().replace('T', ' ').substring(0, 19),
-          timestamp: now.getTime()
+          utcTime: timeNow.toISOString(),
+          formattedTime: timeNow.toISOString().replace('T', ' ').substring(0, 19),
+          timestamp: timeNow.getTime()
         };
 
       default:

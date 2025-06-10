@@ -2479,4 +2479,173 @@ export class KnowledgeGraphClient {
       relations: formattedRelations 
     };
   }
+
+  /**
+   * Get all entities in a zone (alias for search with wildcard)
+   * @param zone Optional memory zone name, uses defaultZone if not specified
+   * @param limit Maximum number of entities to return
+   */
+  async getAllEntities(zone?: string, limit?: number): Promise<ESEntity[]> {
+    const actualZone = zone || this.defaultZone;
+    
+    const searchResults = await this.search({
+      query: '*',
+      zone: actualZone,
+      limit: limit || 1000
+    });
+    
+    return searchResults.hits.hits
+      .filter(hit => hit._source.type === 'entity')
+      .map(hit => hit._source as ESEntity);
+  }
+
+  /**
+   * Get all relations in a zone
+   * @param zone Optional memory zone name, uses defaultZone if not specified  
+   * @param limit Maximum number of relations to return
+   */
+  async getAllRelations(zone?: string, limit?: number): Promise<ESRelation[]> {
+    const actualZone = zone || this.defaultZone;
+    await this.initialize(actualZone);
+    
+    // Get relations from the zone-specific index
+    const indexName = this.getIndexForZone(actualZone);
+    const zoneRelationsResponse = await this.client.search({
+      index: indexName,
+      body: {
+        query: { term: { type: 'relation' } },
+        size: limit || 1000
+      }
+    });
+    
+    // Get cross-zone relations involving this zone
+    const crossZoneRelationsResponse = await this.client.search({
+      index: KG_RELATIONS_INDEX,
+      body: {
+        query: {
+          bool: {
+            should: [
+              { term: { fromZone: actualZone } },
+              { term: { toZone: actualZone } }
+            ],
+            minimum_should_match: 1
+          }
+        },
+        size: limit || 1000
+      }
+    });
+    
+    const zoneRelations = zoneRelationsResponse.hits.hits.map(hit => hit._source) as ESRelation[];
+    const crossZoneRelations = crossZoneRelationsResponse.hits.hits.map(hit => hit._source) as ESRelation[];
+    
+    // Combine and deduplicate
+    const allRelations = [...zoneRelations, ...crossZoneRelations];
+    const uniqueRelations = allRelations.filter((relation, index, self) => 
+      index === self.findIndex(r => 
+        r.from === relation.from && 
+        r.to === relation.to && 
+        r.relationType === relation.relationType &&
+        r.fromZone === relation.fromZone &&
+        r.toZone === relation.toZone
+      )
+    );
+    
+    return uniqueRelations;
+  }
+
+  /**
+   * Delete all relations involving a specific entity
+   * @param entityName Name of the entity
+   * @param zone Optional memory zone name, uses defaultZone if not specified
+   */
+  async deleteRelationsForEntity(entityName: string, zone?: string): Promise<number> {
+    const actualZone = zone || this.defaultZone;
+    await this.initialize(actualZone);
+    
+    let deletedCount = 0;
+    
+    try {
+      // Delete relations within the same zone
+      const indexName = this.getIndexForZone(actualZone);
+      const zoneDeleteResponse = await this.client.deleteByQuery({
+        index: indexName,
+        body: {
+          query: {
+            bool: {
+              must: [
+                { term: { type: 'relation' } },
+                {
+                  bool: {
+                    should: [
+                      { term: { from: entityName } },
+                      { term: { to: entityName } }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        refresh: true
+      });
+      
+      deletedCount += zoneDeleteResponse.deleted || 0;
+      
+      // Delete cross-zone relations where this entity is involved
+      const crossZoneDeleteResponse = await this.client.deleteByQuery({
+        index: KG_RELATIONS_INDEX,
+        body: {
+          query: {
+            bool: {
+              should: [
+                {
+                  bool: {
+                    must: [
+                      { term: { from: entityName } },
+                      { term: { fromZone: actualZone } }
+                    ]
+                  }
+                },
+                {
+                  bool: {
+                    must: [
+                      { term: { to: entityName } },
+                      { term: { toZone: actualZone } }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        refresh: true
+      });
+      
+      deletedCount += crossZoneDeleteResponse.deleted || 0;
+      
+    } catch (error) {
+      console.error(`Error deleting relations for entity ${entityName}:`, error);
+      throw error;
+    }
+    
+    return deletedCount;
+  }
+
+  /**
+   * Create a new memory zone (alias for addMemoryZone)
+   * @param zone Zone name to create
+   * @param description Optional description of the zone
+   * @param config Optional configuration for the zone
+   */
+  async createZone(zone: string, description?: string, config?: Record<string, any>): Promise<boolean> {
+    return this.addMemoryZone(zone, description, config);
+  }
+
+  /**
+   * Delete a memory zone (alias for deleteMemoryZone)
+   * @param zone Zone name to delete
+   */
+  async deleteZone(zone: string): Promise<boolean> {
+    return this.deleteMemoryZone(zone);
+  }
 } 
