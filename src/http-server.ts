@@ -7,6 +7,7 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
 import { serverConfig, staffBrainManager } from './config.js';
 import { processBrainTool } from './brain-processor.js';
+import { processNicheBrainTool } from './niche-brain-processor.js';
 import { brainTools } from './hybrid-brain-tools.js';
 
 const rateLimiter = new RateLimiterMemory({
@@ -199,6 +200,185 @@ app.post('/stream/:userId?', async (req, res) => {
   }
 });
 
+// ==========================================
+// NICHE-SPECIFIC ROUTES (NEW)
+// ==========================================
+
+// NICHE-SPECIFIC STREAM ENDPOINT: /stream/staff-123/product-a
+app.post('/stream/:userId/:nicheId', async (req, res) => {
+  try {
+    const { jsonrpc, method, params, id } = req.body;
+    const { userId, nicheId } = req.params;
+
+    // Handle MCP protocol messages with niche context
+    switch (method) {
+      case 'initialize':
+        res.json({
+          jsonrpc: '2.0',
+          id: id,
+          result: {
+            protocolVersion: '2024-11-05',
+            capabilities: {
+              tools: {},
+              resources: {},
+              prompts: {}
+            },
+            serverInfo: {
+              name: `brain-mcp-niche-${nicheId}`,
+              version: '1.0.0',
+              nicheId: nicheId
+            }
+          }
+        });
+        break;
+
+      case 'tools/list':
+        // Return tools with niche context
+        res.json({
+          jsonrpc: '2.0',
+          id: id,
+          result: {
+            tools: brainTools.map(tool => ({
+              name: tool.name,
+              description: `${tool.description} (Niche: ${nicheId})`,
+              inputSchema: tool.inputSchema,
+              nicheSpecific: true,
+              nicheId: nicheId
+            })),
+            totalTools: brainTools.length,
+            nicheId: nicheId,
+            nicheSpecific: true
+          }
+        });
+        break;
+
+      case 'tools/call':
+        const toolName = params.name;
+        const toolArgs = params.arguments || {};
+        
+        if (!userId || !nicheId) {
+          return res.status(400).json({
+            jsonrpc: '2.0',
+            id: id,
+            error: {
+              code: -32602,
+              message: 'Invalid params - userId and nicheId required'
+            }
+          });
+        }
+
+        try {
+          // Use niche-specific brain processor
+          const result = await processNicheBrainTool(toolName, toolArgs, userId, nicheId);
+          res.json({
+            jsonrpc: '2.0',
+            id: id,
+            result: {
+              content: [{
+                type: 'text',
+                text: JSON.stringify(result, null, 2)
+              }],
+              isError: !result.success,
+              nicheId: nicheId,
+              nicheSpecific: true
+            }
+          });
+        } catch (error) {
+          res.status(500).json({
+            jsonrpc: '2.0',
+            id: id,
+            error: {
+              code: -32603,
+              message: `Tool execution failed: ${error.message}`,
+              nicheId: nicheId
+            }
+          });
+        }
+        break;
+
+      default:
+        res.status(400).json({
+          jsonrpc: '2.0',
+          id: id,
+          error: {
+            code: -32601,
+            message: `Method not found: ${method}`,
+            nicheId: nicheId
+          }
+        });
+    }
+  } catch (error) {
+    console.error('Niche stream request error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to process niche stream request',
+      nicheId: req.params.nicheId
+    });
+  }
+});
+
+// NICHE-SPECIFIC MCP ENDPOINT: /mcp/staff-123/product-a
+app.post('/mcp/:userId/:nicheId', async (req, res) => {
+  try {
+    const { userId, nicheId } = req.params;
+    const { method, params } = req.body;
+
+    if (!userId || !nicheId) {
+      return res.status(401).json({
+        error: 'Invalid session',
+        message: 'User session and niche ID required',
+        required: ['userId', 'nicheId']
+      });
+    }
+
+    const response = await processNicheBrainToolCall(method, params || {}, userId, nicheId);
+    res.json(response);
+  } catch (error) {
+    console.error('Niche MCP request error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to process niche MCP request',
+      nicheId: req.params.nicheId
+    });
+  }
+});
+
+// GET endpoint for niche info
+app.get('/niche/:nicheId/info', async (req, res) => {
+  try {
+    const { nicheId } = req.params;
+    
+    // Get niche statistics and info
+    const nicheInfo = {
+      nicheId: nicheId,
+      name: `Product/Service: ${nicheId}`,
+      description: `Dynamic niche for ${nicheId} with shared learning`,
+      features: [
+        'Niche-specific intelligence',
+        'Shared learning among marketers',
+        'Product-focused closing strategies',
+        'Separate intelligence per product'
+      ],
+      endpoints: {
+        stream: `/stream/{staffId}/${nicheId}`,
+        mcp: `/mcp/{staffId}/${nicheId}`,
+        info: `/niche/${nicheId}/info`,
+        stats: `/niche/${nicheId}/stats`
+      },
+      activeTools: brainTools.length,
+      nicheSpecific: true
+    };
+
+    res.json(nicheInfo);
+  } catch (error) {
+    console.error('Niche info error:', error);
+    res.status(500).json({
+      error: 'Failed to get niche info',
+      nicheId: req.params.nicheId
+    });
+  }
+});
+
 // EXACT COPY FROM WORKING FACEBOOK MCP
 app.post('/mcp/:userId', async (req, res) => {
   try {
@@ -229,6 +409,12 @@ async function processBrainToolCall(toolName: string, args: any, staffId: string
   return processBrainTool(toolName, args, staffId);
 }
 
+// Import niche brain tool processor  
+async function processNicheBrainToolCall(toolName: string, args: any, staffId: string, nicheId: string): Promise<any> {
+  const { processNicheBrainTool } = await import('./niche-brain-processor.js');
+  return processNicheBrainTool(toolName, args, staffId, nicheId);
+}
+
 // Server startup
 export async function startHttpServer(): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -236,8 +422,13 @@ export async function startHttpServer(): Promise<void> {
       const httpServer = server.listen(serverConfig.port, '0.0.0.0', () => {
         console.error(`🧠 Brain MCP Server started on port ${serverConfig.port}`);
         console.error(`📊 Environment: ${serverConfig.environment}`);
-        console.error(`🛠️ Available tools: 32 brain tools`);
+        console.error(`🛠️ Available tools: 35 brain tools`);
+        console.error(`🎯 Niche support: ENABLED (Dynamic product separation)`);
         console.error(`👥 Ready for STAFF_ID routing!`);
+        console.error(`🔄 Endpoints:`);
+        console.error(`   - Standard: /stream/{staffId} and /mcp/{staffId}`);
+        console.error(`   - Niche: /stream/{staffId}/{nicheId} and /mcp/{staffId}/{nicheId}`);
+        console.error(`   - Niche info: /niche/{nicheId}/info`);
         resolve();
       });
 

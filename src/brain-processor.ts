@@ -1076,7 +1076,7 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
 
       case "get_closing_recommendations":
         // Get customer closing profile
-        const customerQuery = {
+        const closingCustomerQuery = {
           query: {
             bool: {
               must: [
@@ -1088,7 +1088,7 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
           size: 1
         };
 
-        const customerProfile = await executeElasticsearchOperation('search', `brain-private-${staffId}`, customerQuery);
+        const customerProfile = await executeElasticsearchOperation('search', `brain-private-${staffId}`, closingCustomerQuery);
         const profileData = customerProfile?.hits?.hits?.[0]?._source;
 
         // Generate closing recommendations based on profile and conversation
