@@ -123,9 +123,9 @@ class UserSessionManager {
     
     const kgClient = new KnowledgeGraphClient({
       node: session.credentials.elasticsearchUrl,
-      auth: {
+      auth: session.credentials.elasticsearchApiKey ? {
         apiKey: session.credentials.elasticsearchApiKey
-      }
+      } : undefined
     });
 
     await kgClient.initialize();

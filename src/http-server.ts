@@ -238,7 +238,7 @@ app.post('/mcp/:userId', async (req, res) => {
 });
 
 // WebSocket server for real-time MCP protocol
-const wss = new WebSocket.Server({ 
+const wss = new (WebSocket as any).Server({ 
   server,
   path: '/ws',
   maxPayload: 16 * 1024 * 1024
