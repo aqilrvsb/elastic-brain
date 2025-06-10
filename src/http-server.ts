@@ -29,15 +29,31 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Health check endpoint
+// Health check endpoint (Railway-optimized)
 app.get('/health', (req, res) => {
-  res.json({
+  res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     activeStaff: staffBrainManager.getActiveStaffCount(),
     maxConnections: serverConfig.maxConnections,
     environment: serverConfig.environment,
-    service: 'Elasticsearch Brain MCP Server'
+    service: 'Elasticsearch Brain MCP Server',
+    railway: 'ready',
+    port: serverConfig.port
+  });
+});
+
+// Root endpoint for Railway health checks
+app.get('/', (req, res) => {
+  res.status(200).json({
+    message: 'Elasticsearch Brain MCP Server',
+    status: 'running',
+    tools: 32,
+    endpoints: {
+      health: '/health',
+      mcp: '/mcp/{STAFF_ID}',
+      stream: '/stream/{STAFF_ID}'
+    }
   });
 });// Test endpoint to verify deployment
 app.get('/test-deploy', (req, res) => {
@@ -52,22 +68,51 @@ app.get('/test-deploy', (req, res) => {
 
 // Stream endpoint for n8n MCP Client compatibility
 app.get('/stream/:staffId?', (req, res) => {
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-    'Access-Control-Allow-Origin': '*'
-  });
+  try {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Cache-Control'
+    });
 
-  const staffId = req.params.staffId || 'default';
-  res.write(`data: {"type":"connection","status":"connected","message":"Brain MCP ready for staff ${staffId}","staffId":"${staffId}","tools":32}\n\n`);
+    const staffId = req.params.staffId || 'default';
+    
+    // Send initial connection message
+    res.write(`data: {"type":"connection","status":"connected","message":"Brain MCP ready for staff ${staffId}","staffId":"${staffId}","tools":32,"timestamp":"${new Date().toISOString()}"}\n\n`);
 
-  const heartbeat = setInterval(() => {
-    res.write('data: {"type":"heartbeat","timestamp":"' + new Date().toISOString() + '","staffId":"' + staffId + '"}\n\n');
-  }, 30000);
+    // Send one heartbeat and then let n8n handle the connection
+    const initialHeartbeat = setTimeout(() => {
+      try {
+        res.write(`data: {"type":"heartbeat","timestamp":"${new Date().toISOString()}","staffId":"${staffId}"}\n\n`);
+      } catch (e) {
+        // Connection might be closed
+      }
+    }, 1000);
 
-  req.on('close', () => clearInterval(heartbeat));
-  req.on('aborted', () => clearInterval(heartbeat));
+    // Cleanup on disconnect
+    req.on('close', () => {
+      clearTimeout(initialHeartbeat);
+    });
+
+    req.on('aborted', () => {
+      clearTimeout(initialHeartbeat);
+    });
+
+    // End response after 5 seconds to prevent infinite loop
+    setTimeout(() => {
+      try {
+        res.end();
+      } catch (e) {
+        // Response might already be ended
+      }
+    }, 5000);
+
+  } catch (error) {
+    console.error('Stream endpoint error:', error);
+    res.status(500).end();
+  }
 });
 
 // Handle POST requests to /stream (n8n MCP Client compatibility)
@@ -92,6 +137,8 @@ app.post('/stream/:staffId?', async (req, res) => {
         break;      case 'tools/list':
         const { getBrainToolsList } = await import('./brain-tools.js');
         const brainTools = getBrainToolsList();
+        
+        console.error(`[DEBUG] Returning ${brainTools.length} brain tools for staff ${staffId}`);
         
         res.json({
           jsonrpc: '2.0',
