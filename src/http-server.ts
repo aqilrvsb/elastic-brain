@@ -122,8 +122,10 @@ app.get('/test-deploy', (req, res) => {
 });
 
 // Stream endpoint for n8n MCP Client compatibility (EXACT WORKING PATTERN)
-app.get('/stream', (req, res) => {
-  // Set headers for SSE (Server-Sent Events) - NO STAFF_ID NEEDED HERE
+app.get('/stream/:staffId?', (req, res) => {
+  const staffId = req.params.staffId;
+  
+  // Set headers for SSE (Server-Sent Events)
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
@@ -133,7 +135,7 @@ app.get('/stream', (req, res) => {
   });
 
   // Send initial connection message - EXACT FORMAT FROM WORKING VERSION
-  res.write(`data: {"type":"connection","status":"connected","message":"Brain MCP Server stream ready","tools":32}\n\n`);
+  res.write(`data: {"type":"connection","status":"connected","message":"Brain MCP Server stream ready","staffId":"${staffId || 'none'}","tools":32}\n\n`);
 
   // Keep connection alive with periodic heartbeat - EXACT PATTERN FROM WORKING VERSION
   const heartbeat = setInterval(() => {
