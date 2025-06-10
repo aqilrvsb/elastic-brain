@@ -73,6 +73,50 @@ function mockAIAnalysis(type: string, data: any) {
       return { type: 'analytical', traits: ['detail-oriented', 'data-driven'], confidence: 0.82, timestamp };
     case 'prediction':
       return { probability: 0.73, confidence: 0.68, factors: ['positive_sentiment', 'buying_signals'], timestamp };
+    case 'objection_analysis':
+      return { 
+        objectionType: data.objection || 'price_concern', 
+        personality: 'analytical', 
+        confidence: 0.82, 
+        hiddenConcerns: ['budget_constraints', 'roi_uncertainty'],
+        recommendedApproach: 'data_driven_response',
+        timestamp 
+      };
+    case 'buying_signals':
+      return { 
+        signals: ['budget_mentioned', 'timeline_discussed'], 
+        confidence: 0.78, 
+        urgency: 'medium',
+        timestamp 
+      };
+    case 'next_actions':
+      return { 
+        actions: ['send_proposal', 'schedule_demo'], 
+        priority: 'high', 
+        confidence: 0.85,
+        timestamp 
+      };
+    case 'risk_assessment':
+      return { 
+        riskLevel: 'low', 
+        factors: ['positive_engagement', 'clear_timeline'], 
+        confidence: 0.76,
+        timestamp 
+      };
+    case 'entity_profile':
+      return { 
+        profileType: 'customer', 
+        attributes: ['analytical', 'data_driven'], 
+        confidence: 0.79,
+        timestamp 
+      };
+    case 'relevance_ranking':
+      return { 
+        relevanceScore: 0.89, 
+        rankingFactors: ['keyword_match', 'context_similarity'], 
+        confidence: 0.83,
+        timestamp 
+      };
     default:
       return { analysis: 'basic_analysis', confidence: 0.70, timestamp };
   }
