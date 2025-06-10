@@ -121,19 +121,9 @@ app.get('/test-deploy', (req, res) => {
   });
 });
 
-// Stream endpoint for n8n MCP Client compatibility
-app.get('/stream/:staffId?', (req, res) => {
-  // Debug logging for connection attempts
-  const userAgent = req.get('User-Agent') || '';
-  const staffId = req.params.staffId;
-  
-  console.error(`[DEBUG] Stream connection attempt: staffId=${staffId}, userAgent=${userAgent.substring(0, 50)}`);
-  
-  // Check if this is a browser request (for testing) vs n8n request
-  const isBrowser = userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari') || userAgent.includes('Edge');
-  const isN8N = userAgent.includes('n8n') || userAgent.includes('N8N') || !isBrowser;
-  
-  // Set headers for SSE (Server-Sent Events)
+// Stream endpoint for n8n MCP Client compatibility (EXACT WORKING PATTERN)
+app.get('/stream', (req, res) => {
+  // Set headers for SSE (Server-Sent Events) - NO STAFF_ID NEEDED HERE
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
@@ -142,54 +132,22 @@ app.get('/stream/:staffId?', (req, res) => {
     'Access-Control-Allow-Headers': 'Cache-Control'
   });
 
-  // Send initial connection message with more details
-  const connectionMessage = {
-    type: "connection",
-    status: "connected", 
-    message: "Brain MCP Server stream ready",
-    staffId: staffId || 'none',
-    tools: 32,
-    clientType: isBrowser ? 'browser' : 'mcp-client',
-    endpoints: {
-      stream: `/stream/${staffId}`,
-      post: `/mcp/${staffId}`
-    }
-  };
-  
-  res.write(`data: ${JSON.stringify(connectionMessage)}\n\n`);
+  // Send initial connection message - EXACT FORMAT FROM WORKING VERSION
+  res.write(`data: {"type":"connection","status":"connected","message":"Brain MCP Server stream ready","tools":32}\n\n`);
 
-  if (isBrowser) {
-    // For browser testing: send a few messages then close
-    let messageCount = 0;
-    const browserInterval = setInterval(() => {
-      messageCount++;
-      res.write(`data: {"type":"heartbeat","timestamp":"${new Date().toISOString()}","message":"Browser test ${messageCount}/3"}\n\n`);
-      
-      if (messageCount >= 3) {
-        clearInterval(browserInterval);
-        res.write(`data: {"type":"close","message":"Browser test complete - stream ending"}\n\n`);
-        res.end();
-      }
-    }, 1000);
+  // Keep connection alive with periodic heartbeat - EXACT PATTERN FROM WORKING VERSION
+  const heartbeat = setInterval(() => {
+    res.write('data: {"type":"heartbeat","timestamp":"' + new Date().toISOString() + '"}\n\n');
+  }, 30000); // Every 30 seconds
 
-    req.on('close', () => clearInterval(browserInterval));
-    req.on('aborted', () => clearInterval(browserInterval));
-    
-  } else {
-    // For n8n: keep connection alive with periodic heartbeat (like Facebook MCP)
-    const heartbeat = setInterval(() => {
-      res.write('data: {"type":"heartbeat","timestamp":"' + new Date().toISOString() + '"}\n\n');
-    }, 30000); // Every 30 seconds
+  // Clean up on client disconnect - EXACT PATTERN FROM WORKING VERSION
+  req.on('close', () => {
+    clearInterval(heartbeat);
+  });
 
-    // Clean up on client disconnect
-    req.on('close', () => {
-      clearInterval(heartbeat);
-    });
-
-    req.on('aborted', () => {
-      clearInterval(heartbeat);
-    });
-  }
+  req.on('aborted', () => {
+    clearInterval(heartbeat);
+  });
 });
 
 // Handle POST requests to /stream (n8n MCP Client compatibility)
