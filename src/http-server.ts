@@ -4,10 +4,8 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { createServer } from 'http';
 import WebSocket from 'ws';
-import { v4 as uuidv4 } from 'uuid';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
-import { serverConfig, userSessionManager, UserCredentials } from './config.js';
-import { createMcpServer } from './mcp-server.js';
+import { serverConfig, staffBrainManager } from './config.js';
 
 const rateLimiter = new RateLimiterMemory({
   points: serverConfig.rateLimit.maxRequests,
@@ -25,70 +23,61 @@ app.use(compression());
 app.use(cors({
   origin: serverConfig.corsOrigins,
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-User-ID'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Staff-ID'],
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));// Health check endpoint
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    activeConnections: userSessionManager.getActiveSessionCount(),
+    activeStaff: staffBrainManager.getActiveStaffCount(),
     maxConnections: serverConfig.maxConnections,
     environment: serverConfig.environment,
     service: 'Elasticsearch Brain MCP Server'
   });
-});
-
-// Test endpoint to verify deployment
+});// Test endpoint to verify deployment
 app.get('/test-deploy', (req, res) => {
   res.json({
     status: 'deployed',
     timestamp: new Date().toISOString(),
-    message: 'Elasticsearch Brain MCP Stream endpoint ready',
-    deployTime: new Date().toISOString(),
-    brainTools: 32
+    message: 'Elasticsearch Brain MCP ready for STAFF_ID routing',
+    brainTools: 32,
+    staffSupported: true
   });
 });
 
-// Stream endpoint for n8n MCP Client compatibility (GET for SSE, POST for MCP messages)
-app.get('/stream/:userId?', (req, res) => {
-  // Set headers for SSE (Server-Sent Events)
+// Stream endpoint for n8n MCP Client compatibility
+app.get('/stream/:staffId?', (req, res) => {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Cache-Control'
+    'Access-Control-Allow-Origin': '*'
   });
 
-  const userId = req.params.userId;
-  res.write(`data: {"type":"connection","status":"connected","message":"Elasticsearch Brain MCP Server stream ready","userId":"${userId || 'none'}","tools":32}\n\n`);  // Keep connection alive with periodic heartbeat
+  const staffId = req.params.staffId || 'default';
+  res.write(`data: {"type":"connection","status":"connected","message":"Brain MCP ready for staff ${staffId}","staffId":"${staffId}","tools":32}\n\n`);
+
   const heartbeat = setInterval(() => {
-    res.write('data: {"type":"heartbeat","timestamp":"' + new Date().toISOString() + '","service":"brain-mcp"}\n\n');
-  }, 30000); // Every 30 seconds
+    res.write('data: {"type":"heartbeat","timestamp":"' + new Date().toISOString() + '","staffId":"' + staffId + '"}\n\n');
+  }, 30000);
 
-  // Clean up on client disconnect
-  req.on('close', () => {
-    clearInterval(heartbeat);
-  });
-
-  req.on('aborted', () => {
-    clearInterval(heartbeat);
-  });
+  req.on('close', () => clearInterval(heartbeat));
+  req.on('aborted', () => clearInterval(heartbeat));
 });
 
 // Handle POST requests to /stream (n8n MCP Client compatibility)
-app.post('/stream/:userId?', async (req, res) => {
+app.post('/stream/:staffId?', async (req, res) => {
   try {
     const { jsonrpc, method, params, id } = req.body;
-    const userId = req.params.userId || 
-                  (req.headers['x-user-id'] as string) || 
-                  req.body.sessionId || 
-                  req.query.sessionId as string;
+    const staffId = req.params.staffId || 
+                   (req.headers['x-staff-id'] as string) || 
+                   'default';
 
-    // Handle MCP protocol messages
     switch (method) {
       case 'initialize':
         res.json({
@@ -97,11 +86,10 @@ app.post('/stream/:userId?', async (req, res) => {
           result: {
             protocolVersion: '2024-11-05',
             capabilities: { tools: {}, resources: {}, prompts: {} },
-            serverInfo: { name: 'elastic-brain-mcp', version: '1.0.0' }
+            serverInfo: { name: 'elastic-brain-mcp', version: '1.0.0', staffId }
           }
         });
         break;      case 'tools/list':
-        // Import brain tools list from the original MCP server
         const { getBrainToolsList } = await import('./brain-tools.js');
         const brainTools = getBrainToolsList();
         
@@ -113,42 +101,24 @@ app.post('/stream/:userId?', async (req, res) => {
         break;
 
       case 'tools/call':
-        if (!userId) {
-          return res.status(400).json({
-            jsonrpc: '2.0',
-            id: id,
-            error: {
-              code: -32602,
-              message: 'Session ID required. Provide via URL parameter (/stream/SESSION_ID), X-User-ID header, or sessionId in body/query.'
-            }
-          });
-        }
-        
         try {
-          const result = await processBrainToolCall(params.name, params.arguments || {}, userId);
+          const result = await processBrainToolCall(params.name, params.arguments || {}, staffId);
           res.json({
             jsonrpc: '2.0',
             id: id,
-            result: {
-              content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
-            }
+            result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
           });
         } catch (error) {
           res.json({
             jsonrpc: '2.0',
             id: id,
-            error: {
-              code: -32603,
-              message: error instanceof Error ? error.message : 'Unknown error'
-            }
+            error: { code: -32603, message: error instanceof Error ? error.message : 'Unknown error' }
           });
         }
-        break;      default:
-        res.json({
-          jsonrpc: '2.0',
-          id: id,
-          result: {}
-        });
+        break;
+
+      default:
+        res.json({ jsonrpc: '2.0', id: id, result: {} });
     }
   } catch (error) {
     res.status(500).json({
@@ -159,74 +129,20 @@ app.post('/stream/:userId?', async (req, res) => {
   }
 });
 
-// Authentication endpoint for creating brain sessions
-app.post('/auth', async (req, res) => {
+// Direct MCP endpoint for staff - NO AUTH NEEDED
+app.post('/mcp/:staffId', async (req, res) => {
   try {
-    const { elasticsearchUrl, elasticsearchApiKey, groqApiKey } = req.body;
-    
-    if (!elasticsearchUrl || !elasticsearchApiKey) {
-      return res.status(400).json({
-        error: 'Missing required credentials',
-        required: ['elasticsearchUrl', 'elasticsearchApiKey']
-      });
-    }
-
-    if (userSessionManager.getActiveSessionCount() >= serverConfig.maxConnections) {
-      return res.status(503).json({
-        error: 'Server at capacity',
-        message: 'Maximum number of connections reached. Please try again later.'
-      });
-    }
-
-    const userId = uuidv4();
-    const credentials: UserCredentials = {
-      elasticsearchUrl,
-      elasticsearchApiKey,
-      groqApiKey: groqApiKey || process.env.GROQ_API_KEY,
-      userId
-    };    const result = userSessionManager.createSession(credentials);
-    
-    if (!result.success) {
-      return res.status(400).json({
-        error: 'Authentication failed',
-        message: result.error
-      });
-    }
-
-    res.json({
-      success: true,
-      userId,
-      message: 'Brain session created successfully',
-      endpoints: {
-        websocket: `/ws/${userId}`,
-        http: `/mcp/${userId}`,
-        stream: `/stream/${userId}`
-      },
-      brainTools: 32,
-      ready: true
-    });
-  } catch (error) {
-    console.error('Auth error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Failed to process authentication request'
-    });
-  }
-});
-
-// MCP endpoint for direct tool calls
-app.post('/mcp/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
+    const { staffId } = req.params;
     const { method, params } = req.body;
 
-    const session = userSessionManager.getSession(userId);
-    if (!session) {
-      return res.status(401).json({
-        error: 'Invalid session',
-        message: 'User session not found or expired'
+    if (!staffId || staffId === 'undefined') {
+      return res.status(400).json({
+        error: 'STAFF_ID required',
+        message: 'Provide STAFF_ID in URL: /mcp/{STAFF_ID}'
       });
-    }    const response = await processBrainToolCall(method, params || {}, userId);
+    }
+
+    const response = await processBrainToolCall(method, params || {}, staffId);
     res.json(response);
   } catch (error) {
     console.error('MCP request error:', error);
@@ -235,9 +151,7 @@ app.post('/mcp/:userId', async (req, res) => {
       message: 'Failed to process brain request'
     });
   }
-});
-
-// WebSocket server for real-time MCP protocol
+});// WebSocket server for real-time MCP protocol
 const wss = new (WebSocket as any).Server({ 
   server,
   path: '/ws',
@@ -248,28 +162,14 @@ wss.on('connection', async (ws: WebSocket, req) => {
   try {
     const url = new URL(req.url!, `http://${req.headers.host}`);
     const pathParts = url.pathname.split('/');
-    const userId = pathParts[2];
+    const staffId = pathParts[2] || 'default';
 
-    if (!userId) {
-      ws.close(1008, 'User ID required in path');
-      return;
-    }
+    console.error(`Brain MCP WebSocket connected for staff: ${staffId}`);
 
-    const session = userSessionManager.getSession(userId);
-    if (!session) {
-      ws.close(1008, 'Invalid or expired session');
-      return;
-    }
-
-    console.error(`Brain MCP WebSocket connected for user: ${userId}`);
-
-    // Create MCP server instance for this user
-    const mcpServer = createMcpServer(userId);    // Handle MCP protocol messages
     ws.on('message', async (data: WebSocket.Data) => {
       let message: any = null;
       try {
         message = JSON.parse(data.toString());
-        console.error(`Brain MCP message from user ${userId}:`, message.method);
         
         if (message.method === 'initialize') {
           const response = {
@@ -278,7 +178,7 @@ wss.on('connection', async (ws: WebSocket, req) => {
             result: {
               protocolVersion: '2024-11-05',
               capabilities: { tools: {}, prompts: {}, resources: {} },
-              serverInfo: { name: 'elastic-brain-mcp', version: '1.0.0' }
+              serverInfo: { name: 'elastic-brain-mcp', version: '1.0.0', staffId }
             }
           };
           ws.send(JSON.stringify(response));
@@ -299,7 +199,7 @@ wss.on('connection', async (ws: WebSocket, req) => {
         }
 
         if (message.method === 'tools/call') {
-          const toolResult = await processBrainToolCall(message.params.name, message.params.arguments || {}, userId);
+          const toolResult = await processBrainToolCall(message.params.name, message.params.arguments || {}, staffId);
           const response = {
             jsonrpc: '2.0',
             id: message.id,
@@ -307,12 +207,13 @@ wss.on('connection', async (ws: WebSocket, req) => {
           };
           ws.send(JSON.stringify(response));
           return;
-        }        // Default response for other methods
+        }
+
         const response = { jsonrpc: '2.0', id: message.id, result: {} };
         ws.send(JSON.stringify(response));
 
       } catch (error) {
-        console.error(`Error processing brain MCP message from user ${userId}:`, error);
+        console.error(`Error processing brain MCP message from staff ${staffId}:`, error);
         const errorResponse = {
           jsonrpc: '2.0',
           id: message?.id || null,
@@ -323,35 +224,32 @@ wss.on('connection', async (ws: WebSocket, req) => {
     });
 
     ws.on('close', () => {
-      console.error(`Brain MCP WebSocket disconnected for user: ${userId}`);
-    });
-
-    ws.on('error', (error) => {
-      console.error(`Brain MCP WebSocket error for user ${userId}:`, error);
+      console.error(`Brain MCP WebSocket disconnected for staff: ${staffId}`);
     });
 
   } catch (error) {
     console.error('WebSocket connection error:', error);
     ws.close(1011, 'Internal server error');
   }
-});
-
-// Import brain tool processor
-async function processBrainToolCall(toolName: string, args: any, userId: string): Promise<any> {
+});// Import brain tool processor
+async function processBrainToolCall(toolName: string, args: any, staffId: string): Promise<any> {
   const { processBrainTool } = await import('./brain-processor.js');
-  return processBrainTool(toolName, args, userId);
+  return processBrainTool(toolName, args, staffId);
 }
 
 // Server startup and shutdown functions
-let httpServer: any = null;export async function startHttpServer(): Promise<void> {
+let httpServer: any = null;
+
+export async function startHttpServer(): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
       httpServer = server.listen(serverConfig.port, () => {
         console.error(`🧠 Elasticsearch Brain MCP Server started on port ${serverConfig.port}`);
         console.error(`📊 Environment: ${serverConfig.environment}`);
         console.error(`🔗 Health check: http://localhost:${serverConfig.port}/health`);
-        console.error(`🧠 Stream endpoint: http://localhost:${serverConfig.port}/stream`);
+        console.error(`🧠 Staff endpoint: http://localhost:${serverConfig.port}/mcp/{STAFF_ID}`);
         console.error(`🛠️ Available tools: 32 brain tools`);
+        console.error(`👥 Ready for STAFF_ID routing!`);
         resolve();
       });
 
@@ -369,6 +267,7 @@ export async function stopHttpServer(): Promise<void> {
   return new Promise((resolve) => {
     if (httpServer) {
       httpServer.close(() => {
+        staffBrainManager.cleanup();
         console.error('🧠 Elasticsearch Brain MCP Server stopped');
         resolve();
       });

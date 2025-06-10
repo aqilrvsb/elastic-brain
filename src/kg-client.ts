@@ -49,7 +49,9 @@ export class KnowledgeGraphClient {
    */
   constructor(private options: { 
     node: string;
-    auth?: { username: string; password: string } | { apiKey: string };
+    auth?: { 
+      apiKey: string;
+    };
     defaultZone?: string;
   }) {
     this.client = new Client({

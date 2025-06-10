@@ -1,4 +1,4 @@
-import { userSessionManager } from './config.js';
+import { staffBrainManager } from './config.js';
 import { inspectFile } from './filesystem/index.js';
 
 // Format response helper
@@ -11,15 +11,14 @@ function formatDate(date: Date = new Date()): string {
   return date.toISOString().split('T')[0];
 }
 
-export async function processBrainTool(toolName: string, params: any, userId: string): Promise<any> {
-  // Get user session and initialize KG client
-  const session = userSessionManager.getSession(userId);
-  if (!session) {
-    throw new Error('Invalid session');
-  }
+export async function processBrainTool(toolName: string, params: any, staffId: string): Promise<any> {
+  // Get KG client for this staff member (auto-creates if needed)
+  const kgClient = await staffBrainManager.getKgClient(staffId);
 
-  // Initialize KG client for this session
-  const kgClient = await userSessionManager.initializeKgClient(userId);
+  // Auto-set memory_zone to staffId if not provided
+  if (params && typeof params === 'object' && !params.memory_zone) {
+    params.memory_zone = staffId;
+  }
 
   try {
     switch (toolName) {
@@ -44,7 +43,9 @@ export async function processBrainTool(toolName: string, params: any, userId: st
           }
         }
         
-        return { success: true, results };      case "inspect_knowledge_graph":
+        return { success: true, results, staffId };
+
+      case "inspect_knowledge_graph":
         const { information_needed: kgInfo, reason: kgReason, include_entities, include_relations, keywords: kgKeywords, memory_zone, entity_types } = params;
         
         const { inspectKnowledgeGraph } = await import('./kg-inspection.js');
@@ -55,12 +56,13 @@ export async function processBrainTool(toolName: string, params: any, userId: st
             kgInfo,
             kgReason,
             kgKeywords,
-            memory_zone,
+            memory_zone || staffId,
             entity_types
           );
           
           return {
             success: true,
+            staffId,
             tentativeAnswer: kgResults.tentativeAnswer,
             entities: include_entities ? kgResults.entities : kgResults.entities.map(e => ({ name: e.name, entityType: e.entityType })),
             relations: include_relations ? kgResults.relations : []
@@ -68,13 +70,12 @@ export async function processBrainTool(toolName: string, params: any, userId: st
         } catch (error) {
           return {
             success: false,
+            staffId,
             error: `Error inspecting knowledge graph: ${error.message}`
           };
-        }
-
-      case "create_entities":
+        }      case "create_entities":
         const entities = params.entities;
-        const zone = params.memory_zone;
+        const zone = params.memory_zone || staffId;
         
         // Check for conflicts and invalid entities
         const conflictingEntities = [];
@@ -93,10 +94,10 @@ export async function processBrainTool(toolName: string, params: any, userId: st
           if (existingEntity) {
             conflictingEntities.push(entity.name);
           }
-        }        // Handle conflicts and invalid entities
+        }
+
+        // Handle conflicts and invalid entities
         if (conflictingEntities.length > 0 || invalidEntities.length > 0) {
-          const zoneMsg = zone ? ` in zone "${zone}"` : "";
-          
           const existingEntitiesData = [];
           if (conflictingEntities.length > 0) {
             for (const entityName of conflictingEntities) {
@@ -109,12 +110,13 @@ export async function processBrainTool(toolName: string, params: any, userId: st
           
           return {
             success: false,
-            error: `Entity creation failed${zoneMsg}, no entities were created.`,
+            staffId,
+            error: `Entity creation failed in zone "${zone}", no entities were created.`,
             conflicts: conflictingEntities.length > 0 ? conflictingEntities : undefined,
             existingEntities: existingEntitiesData.length > 0 ? existingEntitiesData : undefined,
             invalidEntities: invalidEntities.length > 0 ? invalidEntities : undefined,
             message: conflictingEntities.length > 0 ? 
-              "Feel free to extend existing entities with more information if needed, or create entities with different names. Use update_entities to modify existing entities." : 
+              "Use update_entities to modify existing entities or create with different names." : 
               "Please provide valid entity names for all entities."
           };
         }
@@ -134,44 +136,16 @@ export async function processBrainTool(toolName: string, params: any, userId: st
         
         return {
           success: true,
+          staffId,
+          zone,
           entities: createdEntities.map(e => ({
             name: e.name,
             entityType: e.entityType,
             observations: e.observations
           }))
-        };      case "update_entities":
-        const updateEntities = params.entities;
-        const updateZone = params.memory_zone;
-        const updatedEntities = [];
-        
-        for (const entity of updateEntities) {
-          const existingEntity = await kgClient.getEntity(entity.name, updateZone);
-          if (!existingEntity) {
-            const zoneMsg = updateZone ? ` in zone "${updateZone}"` : "";
-            throw new Error(`Entity "${entity.name}" not found${zoneMsg}`);
-          }
-          
-          const updatedEntity = await kgClient.saveEntity({
-            name: entity.name,
-            entityType: entity.entityType || existingEntity.entityType,
-            observations: entity.observations || existingEntity.observations,
-            relevanceScore: entity.relevanceScore || ((existingEntity.relevanceScore ?? 1.0) * 2.0)
-          }, updateZone);
-          
-          updatedEntities.push(updatedEntity);
-        }
-        
-        return {
-          entities: updatedEntities.map(e => ({
-            name: e.name,
-            entityType: e.entityType,
-            observations: e.observations
-          }))
-        };
-
-      case "search_nodes":
+        };      case "search_nodes":
         const includeObservations = params.includeObservations ?? false;
-        const searchZone = params.memory_zone;
+        const searchZone = params.memory_zone || staffId;
         
         const { entities: filteredEntities, relations: formattedRelations } = await kgClient.userSearch({
           query: params.query,
@@ -184,31 +158,86 @@ export async function processBrainTool(toolName: string, params: any, userId: st
           reason: params.reason
         });
         
-        return { entities: filteredEntities, relations: formattedRelations };      case "get_time_utc":
+        return { 
+          success: true,
+          staffId, 
+          zone: searchZone,
+          entities: filteredEntities, 
+          relations: formattedRelations 
+        };
+
+      case "get_time_utc":
         const now = new Date();
         return {
           success: true,
+          staffId,
           utc_time: now.toISOString().replace('T', ' ').replace('Z', ''),
           timestamp: now.toISOString(),
           date: formatDate(now)
         };
 
-      // Add more brain tools here...
-      // For now, we'll implement the core ones and add others progressively
+      // Add more core brain tools as needed...
+      case "create_zone":
+        const zoneName = params.name;
+        const zoneDescription = params.description || params.shortDescription || `Memory zone for ${zoneName}`;
+        
+        try {
+          // For staff-based zones, prefix with staff ID to ensure isolation
+          const fullZoneName = zoneName.startsWith(staffId) ? zoneName : `${staffId}-${zoneName}`;
+          
+          await kgClient.createZone(fullZoneName, zoneDescription, params.shortDescription);
+          
+          return {
+            success: true,
+            staffId,
+            zone: fullZoneName,
+            message: `Zone "${fullZoneName}" created successfully`
+          };
+        } catch (error) {
+          return {
+            success: false,
+            staffId,
+            error: `Failed to create zone: ${error.message}`
+          };
+        }
 
-      default:
-        // For tools not yet implemented, delegate to the original brain system
-        console.error(`Brain tool '${toolName}' not yet implemented in HTTP version`);
+      case "list_zones":
+        try {
+          const zones = await kgClient.listZones();
+          // Filter zones for this staff member
+          const staffZones = zones.filter(zone => 
+            zone.name === staffId || 
+            zone.name.startsWith(`${staffId}-`) ||
+            zone.name === 'default'
+          );
+          
+          return {
+            success: true,
+            staffId,
+            zones: staffZones,
+            totalZones: staffZones.length
+          };
+        } catch (error) {
+          return {
+            success: false,
+            staffId,
+            error: `Failed to list zones: ${error.message}`
+          };
+        }      default:
+        // For tools not yet implemented in this simplified version
+        console.error(`Brain tool '${toolName}' not yet implemented in STAFF_ID version`);
         return {
           success: false,
-          error: `Brain tool '${toolName}' not yet implemented in HTTP version`,
-          message: 'This tool will be added in the next update'
+          staffId,
+          error: `Brain tool '${toolName}' not yet implemented`,
+          message: 'Core tools: create_entities, search_nodes, inspect_knowledge_graph, create_zone, list_zones, get_time_utc'
         };
     }
   } catch (error) {
-    console.error(`Error processing brain tool '${toolName}':`, error);
+    console.error(`Error processing brain tool '${toolName}' for staff ${staffId}:`, error);
     return {
       success: false,
+      staffId,
       error: `Error processing brain tool: ${error.message}`,
       tool: toolName
     };

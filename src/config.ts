@@ -1,6 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
-
-// Server configuration
+// Simple configuration without sessions
 export const serverConfig = {
   port: process.env.PORT ? parseInt(process.env.PORT) : 3000,
   environment: process.env.NODE_ENV || 'development',
@@ -9,130 +7,48 @@ export const serverConfig = {
   rateLimit: {
     maxRequests: process.env.RATE_LIMIT_MAX ? parseInt(process.env.RATE_LIMIT_MAX) : 100,
     windowMs: process.env.RATE_LIMIT_WINDOW ? parseInt(process.env.RATE_LIMIT_WINDOW) : 60000
-  },
-  sessionTimeout: process.env.SESSION_TIMEOUT ? parseInt(process.env.SESSION_TIMEOUT) : 3600000 // 1 hour
+  }
 };
 
-// User credentials interface
-export interface UserCredentials {
-  elasticsearchUrl: string;
-  elasticsearchApiKey: string;
-  groqApiKey?: string;
-  userId: string;
-}
-
-// User session interface
-export interface UserSession {
-  credentials: UserCredentials;
-  createdAt: Date;
-  lastActivity: Date;
-  kgClient?: any; // KnowledgeGraphClient instance
-}
-
-// Session management
-class UserSessionManager {
-  private sessions: Map<string, UserSession> = new Map();
-  private cleanupInterval: NodeJS.Timeout;
-
-  constructor() {
-    // Clean up expired sessions every 10 minutes
-    this.cleanupInterval = setInterval(() => {
-      this.cleanupExpiredSessions();
-    }, 10 * 60 * 1000);
-  }  createSession(credentials: UserCredentials): { success: boolean; error?: string } {
-    try {
-      // Validate Elasticsearch credentials
-      if (!credentials.elasticsearchUrl || !credentials.elasticsearchApiKey) {
-        return { success: false, error: 'Missing Elasticsearch credentials' };
-      }
-
-      // Create session
-      const session: UserSession = {
-        credentials,
-        createdAt: new Date(),
-        lastActivity: new Date()
-      };
-
-      this.sessions.set(credentials.userId, session);
-      console.error(`Brain session created for user: ${credentials.userId}`);
-      
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-    }
+// Hardcoded Elasticsearch configuration (your working setup)
+export const elasticsearchConfig = {
+  node: process.env.ELASTICSEARCH_URL || 'https://my-elasticsearch-project-d584c1b.ap-southeast-1.aws.elastic.cloud:9243',
+  auth: {
+    apiKey: process.env.ELASTICSEARCH_API_KEY || 'S0NjaFdwY0JZa0RQVUJjS1ZzR2o6X1ZvdTNTUXJKWldOb1ZnZlZySk1JQQ=='
   }
+};
 
-  getSession(userId: string): UserSession | null {
-    const session = this.sessions.get(userId);
-    if (session) {
-      // Update last activity
-      session.lastActivity = new Date();
-      return session;
-    }
-    return null;
-  }
+// Simple KG client cache for staff IDs
+class StaffBrainManager {
+  private kgClients: Map<string, any> = new Map();
 
-  deleteSession(userId: string): boolean {
-    const deleted = this.sessions.delete(userId);
-    if (deleted) {
-      console.error(`Brain session deleted for user: ${userId}`);
-    }
-    return deleted;
-  }
-
-  getActiveSessionCount(): number {
-    return this.sessions.size;
-  }  private cleanupExpiredSessions(): void {
-    const now = new Date();
-    let cleanedCount = 0;
-
-    for (const [userId, session] of this.sessions.entries()) {
-      const timeSinceLastActivity = now.getTime() - session.lastActivity.getTime();
-      
-      if (timeSinceLastActivity > serverConfig.sessionTimeout) {
-        this.sessions.delete(userId);
-        cleanedCount++;
-      }
+  async getKgClient(staffId: string): Promise<any> {
+    if (this.kgClients.has(staffId)) {
+      return this.kgClients.get(staffId);
     }
 
-    if (cleanedCount > 0) {
-      console.error(`Cleaned up ${cleanedCount} expired brain sessions`);
-    }
-  }
-
-  shutdown(): void {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-    }
-    this.sessions.clear();
-  }
-
-  // Initialize KnowledgeGraphClient for a session
-  async initializeKgClient(userId: string): Promise<any> {
-    const session = this.getSession(userId);
-    if (!session) {
-      throw new Error('Session not found');
-    }
-
-    if (session.kgClient) {
-      return session.kgClient;
-    }
-
-    // Import and create KG client
+    // Import and create KG client for this staff member
     const { KnowledgeGraphClient } = await import('./kg-client.js');
     
     const kgClient = new KnowledgeGraphClient({
-      node: session.credentials.elasticsearchUrl,
-      auth: session.credentials.elasticsearchApiKey ? {
-        apiKey: session.credentials.elasticsearchApiKey
-      } : undefined
+      node: elasticsearchConfig.node,
+      auth: elasticsearchConfig.auth,
+      defaultZone: staffId // Use STAFF_ID as default zone
     });
 
     await kgClient.initialize();
-    session.kgClient = kgClient;
+    this.kgClients.set(staffId, kgClient);
     
     return kgClient;
   }
+
+  getActiveStaffCount(): number {
+    return this.kgClients.size;
+  }
+
+  cleanup(): void {
+    this.kgClients.clear();
+  }
 }
 
-export const userSessionManager = new UserSessionManager();
+export const staffBrainManager = new StaffBrainManager();
