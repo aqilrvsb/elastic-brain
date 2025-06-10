@@ -82,6 +82,20 @@ app.get('/stream', (req, res) => {
   });
 });
 
+// Handle n8n sending tool calls to wrong endpoint - redirect to correct pattern
+app.post('/stream', async (req, res) => {
+  console.error(`[ERROR] n8n sent tool call to POST /stream instead of POST /mcp/staffId`);
+  console.error(`[ERROR] Request body:`, JSON.stringify(req.body, null, 2));
+  
+  res.status(400).json({
+    error: 'Wrong endpoint',
+    message: 'Tool calls should go to /mcp/staff-YOUR_ID, not /stream',
+    correction: 'Update Messages Post Endpoint to: https://elastic-brain-production.up.railway.app/mcp/staff-alice-123',
+    receivedAt: '/stream',
+    shouldBeAt: '/mcp/staff-alice-123'
+  });
+});
+
 // MCP endpoint for n8n tool calls (Messages Post Endpoint)
 app.post('/mcp/:staffId', async (req, res) => {
   try {
