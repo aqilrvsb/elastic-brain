@@ -9,23 +9,22 @@ import readline from 'readline';
 import GroqAI from './ai-service.js';
 
 // Environment configuration for Elasticsearch
-const ES_NODE = process.env.ES_NODE || 'http://localhost:9200';
-const ES_USERNAME = process.env.ES_USERNAME;
-const ES_PASSWORD = process.env.ES_PASSWORD;
+const ES_NODE = process.env.ES_NODE || 'https://my-elasticsearch-project-d584c1b.ap-southeast-1.aws.elastic.cloud:9243';
+const ES_API_KEY = process.env.ES_API_KEY || 'S0NjaFdwY0JZa0RQVUJjS1ZzR2o6X1ZvdTNTUXJKWldOb1ZnZlZySk1JQQ==';
 const DEFAULT_ZONE = process.env.KG_DEFAULT_ZONE || 'default';
 
 // Configure ES client with authentication if provided
 const esOptions: { 
   node: string; 
-  auth?: { username: string; password: string };
+  auth?: { apiKey: string };
   defaultZone?: string;
 } = {
   node: ES_NODE,
   defaultZone: DEFAULT_ZONE
 };
 
-if (ES_USERNAME && ES_PASSWORD) {
-  esOptions.auth = { username: ES_USERNAME, password: ES_PASSWORD };
+if (ES_API_KEY) {
+  esOptions.auth = { apiKey: ES_API_KEY };
 }
 
 // Create KG client

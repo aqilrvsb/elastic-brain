@@ -6,7 +6,7 @@ import { ESEntity, ESRelation } from './es-types.js';
 // Updated client options type
 interface ESClientOptions {
   node: string;
-  auth?: { username: string; password: string };
+  auth?: { apiKey: string };
   defaultZone?: string;
 }
 
@@ -152,7 +152,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const command = args[0];
   const filePath = args[1];
   const zone = args[2];
-  const esNode = process.env.ES_NODE || 'http://localhost:9200';
+  const esNode = process.env.ES_NODE || 'https://my-elasticsearch-project-d584c1b.ap-southeast-1.aws.elastic.cloud:9243';
   
   if (!command || !filePath) {
     console.error('Usage: node json-to-es.js import|export <file_path> [zone]');
@@ -165,10 +165,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   };
   
   // Add authentication if provided
-  if (process.env.ES_USERNAME && process.env.ES_PASSWORD) {
+  if (process.env.ES_API_KEY) {
     esOptions.auth = {
-      username: process.env.ES_USERNAME,
-      password: process.env.ES_PASSWORD
+      apiKey: process.env.ES_API_KEY || 'S0NjaFdwY0JZa0RQVUJjS1ZzR2o6X1ZvdTNTUXJKWldOb1ZnZlZySk1JQQ=='
     };
   }
   
