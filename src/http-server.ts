@@ -82,18 +82,97 @@ app.get('/stream', (req, res) => {
   });
 });
 
-// Handle n8n sending tool calls to wrong endpoint - redirect to correct pattern
+// Handle n8n tool calls - n8n sends everything to Stream URL
 app.post('/stream', async (req, res) => {
-  console.error(`[ERROR] n8n sent tool call to POST /stream instead of POST /mcp/staffId`);
-  console.error(`[ERROR] Request body:`, JSON.stringify(req.body, null, 2));
-  
-  res.status(400).json({
-    error: 'Wrong endpoint',
-    message: 'Tool calls should go to /mcp/staff-YOUR_ID, not /stream',
-    correction: 'Update Messages Post Endpoint to: https://elastic-brain-production.up.railway.app/mcp/staff-alice-123',
-    receivedAt: '/stream',
-    shouldBeAt: '/mcp/staff-alice-123'
-  });
+  try {
+    const { jsonrpc, method, params, id } = req.body;
+    
+    console.error(`[DEBUG] POST /stream - Method: ${method}`);
+    console.error(`[DEBUG] Headers:`, JSON.stringify(req.headers, null, 2));
+    
+    // Extract staffId from headers since URL doesn't have it
+    const staffId = (req.headers['x-staff-id'] as string) || 
+                   req.body.sessionId || 
+                   req.query.sessionId as string;
+    
+    console.error(`[DEBUG] Extracted staffId: ${staffId}`);
+
+    switch (method) {
+      case 'initialize':
+        res.json({
+          jsonrpc: '2.0',
+          id: id,
+          result: {
+            protocolVersion: '2024-11-05',
+            capabilities: { tools: {}, resources: {}, prompts: {} },
+            serverInfo: { name: 'elastic-brain-mcp', version: '1.0.0' }
+          }
+        });
+        break;
+
+      case 'tools/list':
+        const { getBrainToolsList } = await import('./brain-tools.js');
+        const brainTools = getBrainToolsList();
+        
+        res.json({
+          jsonrpc: '2.0',
+          id: id,
+          result: { tools: brainTools }
+        });
+        break;
+
+      case 'tools/call':
+        if (!staffId) {
+          return res.json({
+            jsonrpc: '2.0',
+            id: id,
+            error: {
+              code: -32602,
+              message: 'STAFF_ID required. Add X-Staff-ID header with value: staff-alice-123'
+            }
+          });
+        }
+        
+        const toolName = params.name;
+        const toolArgs = params.arguments || {};
+        
+        try {
+          const result = await processBrainToolCall(toolName, toolArgs, staffId);
+          res.json({
+            jsonrpc: '2.0',
+            id: id,
+            result: {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(result, null, 2)
+                }
+              ]
+            }
+          });
+        } catch (error) {
+          res.json({
+            jsonrpc: '2.0',
+            id: id,
+            error: {
+              code: -32603,
+              message: error instanceof Error ? error.message : 'Unknown error'
+            }
+          });
+        }
+        break;
+
+      default:
+        res.json({ jsonrpc: '2.0', id: id, result: {} });
+    }
+  } catch (error) {
+    console.error('POST /stream error:', error);
+    res.status(500).json({
+      jsonrpc: '2.0',
+      id: req.body?.id || null,
+      error: { code: -32603, message: 'Internal error' }
+    });
+  }
 });
 
 // MCP endpoint for n8n tool calls (Messages Post Endpoint)
