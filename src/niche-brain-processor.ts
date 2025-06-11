@@ -1,0 +1,409 @@
+// DYNAMIC NICHE-BASED BRAIN ARCHITECTURE
+// Brain intelligence separated by product/niche dynamically
+
+import { elasticsearchConfig } from './config.js';
+
+export interface DynamicNicheConfig {
+  nicheId: string;
+  productName: string;
+  productCategory: string;
+  targetMarket: string;
+  activeMarketers: string[];
+  sharedIntelligence: {
+    successPatterns: any[];
+    objectionHandling: any[];
+    closingStrategies: any[];
+    customerProfiles: any[];
+  };
+}
+
+// Elasticsearch operations for niche brain
+async function executeElasticsearchOperation(operation: string, indexName: string, data: any = null, staffId: string = null) {
+  try {
+    const headers = {
+      'Authorization': `ApiKey ${elasticsearchConfig.auth.apiKey}`,
+      'Content-Type': 'application/json'
+    };
+
+    let url = `${elasticsearchConfig.node}/${indexName}`;
+    let method = 'GET';
+    let body = null;
+
+    switch (operation) {
+      case 'createDocument':
+        url += '/_doc';
+        method = 'POST';
+        body = JSON.stringify({
+          ...data,
+          staffId,
+          timestamp: new Date().toISOString()
+        });
+        break;
+      
+      case 'search':
+        url += '/_search';
+        method = 'POST';
+        body = JSON.stringify(data);
+        break;
+    }
+
+    console.log(`🔗 Elasticsearch ${operation} to ${url}`);
+    console.log(`📊 Request body:`, body ? JSON.parse(body) : 'N/A');
+
+    const response = await fetch(url, { method, headers, body });
+    
+    if (response.ok) {
+      const result = await response.json();
+      console.log(`✅ Elasticsearch ${operation} success:`, result);
+      return result;
+    } else {
+      const errorText = await response.text();
+      console.error(`❌ Elasticsearch ${operation} failed: ${response.status} - ${errorText}`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`💥 Elasticsearch ${operation} error:`, error.message);
+    return null;
+  }
+}
+
+// Dynamic niche brain processor that separates learning by product
+export async function processNicheBrainTool(toolName: string, params: any, staffId: string, nicheId: string): Promise<any> {
+  try {
+    // Create niche-specific indices for shared intelligence
+    const nicheSharedIndex = `brain-shared-intelligence-${nicheId}`;
+    const nichePrivateIndex = `brain-private-${staffId}-${nicheId}`;
+    const nicheConversationIndex = `brain-conversations-${staffId}-${nicheId}`;
+
+    switch (toolName) {
+      
+      // ==========================================
+      // NICHE-SPECIFIC ENHANCED TOOLS
+      // ==========================================
+      
+      case "detect_buying_signals":
+        // Get niche-specific buying signals from shared intelligence
+        const nicheSignalsQuery = {
+          query: {
+            bool: {
+              must: [
+                { term: { nicheId: nicheId }},
+                { term: { 'extractedPattern.patternType': 'buying_signals' }}
+              ]
+            }
+          },
+          size: 10
+        };
+        
+        const nicheSignalPatterns = await executeElasticsearchOperation('search', nicheSharedIndex, nicheSignalsQuery);
+        
+        // Enhanced signal detection specific to this niche
+        const messageText = (params.customerMessage || params.conversationText || '').toLowerCase();
+        const detectedSignals = [];
+        let closeReadinessScore = 0;
+        
+        // Use niche-specific learned signals
+        const learnedSignals = nicheSignalPatterns?.hits?.hits?.map(hit => hit._source.extractedPattern.signal) || [];
+        
+        // Default signals + learned niche signals
+        const allSignals = [
+          ...learnedSignals,
+          'what\'s the next step',
+          'how do we get started',
+          'send me information',
+          'i\'m interested',
+          'what\'s the price'
+        ];
+        
+        allSignals.forEach(signal => {
+          if (messageText.includes(signal.toLowerCase())) {
+            detectedSignals.push({
+              signal: signal,
+              strength: 'high',
+              nicheSpecific: learnedSignals.includes(signal)
+            });
+            closeReadinessScore += 0.2;
+          }
+        });
+
+        return {
+          success: true,
+          message: `🎯 Niche-specific buying signals for ${nicheId}`,
+          nicheId: nicheId,
+          detectedSignals: detectedSignals,
+          closeReadinessScore: Math.min(closeReadinessScore, 1.0),
+          nicheSpecificLearning: learnedSignals.length,
+          recommendedAction: closeReadinessScore >= 0.6 ? 'proceed_to_close' : 'continue_nurturing'
+        };
+
+      case "get_ai_objection_responses":
+        // Get niche-specific objection responses
+        const nicheObjectionQuery = {
+          query: {
+            bool: {
+              must: [
+                { term: { nicheId: nicheId }},
+                { match: { 'extractedPattern.objectionType': params.objectionType }},
+                { match: { 'anonymizedData.objection': params.objectionText }}
+              ]
+            }
+          },
+          size: 5
+        };
+        
+        const nicheObjectionPatterns = await executeElasticsearchOperation('search', nicheSharedIndex, nicheObjectionQuery);
+        
+        // Generate niche-specific response
+        let nicheResponse = {
+          response: `Based on experience with ${nicheId}, here's how to handle this objection...`,
+          approach: 'niche_specific',
+          successRate: 0.75
+        };
+        
+        // Use learned responses if available
+        if (nicheObjectionPatterns?.hits?.hits?.length > 0) {
+          const bestPattern = nicheObjectionPatterns.hits.hits[0]._source;
+          nicheResponse = {
+            response: bestPattern.extractedPattern.response || nicheResponse.response,
+            approach: bestPattern.extractedPattern.approach || 'learned_from_niche',
+            successRate: bestPattern.metadata?.successRate || 0.85
+          };
+        }
+
+        return {
+          success: true,
+          message: `🎯 Niche-specific objection response for ${nicheId}`,
+          nicheId: nicheId,
+          objectionType: params.objectionType,
+          responses: [nicheResponse],
+          nichePatterns: nicheObjectionPatterns?.hits?.hits?.length || 0,
+          sharedLearning: true
+        };
+
+      case "extract_sales_intelligence":
+        // Extract and store niche-specific intelligence
+        const nicheIntelligenceDoc = {
+          nicheId: nicheId,
+          zone: 'shared_niche',
+          patternType: params.extractionType || 'general',
+          extractedPattern: {
+            nicheId: nicheId,
+            pattern: params.conversationData?.text || 'intelligence_pattern',
+            patternType: params.extractionType,
+            confidence: 0.85
+          },
+          anonymizedData: {
+            niche: nicheId,
+            pattern: params.conversationData?.text || 'pattern',
+            outcome: 'positive'
+          },
+          metadata: {
+            contributingStaff: staffId,
+            confidence: 0.85,
+            nicheSpecific: true,
+            timestamp: new Date().toISOString()
+          },
+          timestamp: new Date().toISOString()
+        };
+
+        const nicheIntelligenceResult = await executeElasticsearchOperation('createDocument', nicheSharedIndex, nicheIntelligenceDoc, staffId);
+
+        return {
+          success: true,
+          message: `🧠 Niche intelligence extracted for ${nicheId}`,
+          nicheId: nicheId,
+          patternId: nicheIntelligenceResult?._id,
+          extractionType: params.extractionType,
+          sharedWithNiche: true,
+          contributingToNiche: nicheId
+        };
+
+      case "query_shared_intelligence":
+        // Query niche-specific shared intelligence
+        const nicheIntelligenceQuery = {
+          query: {
+            bool: {
+              must: [
+                { term: { nicheId: nicheId }},
+                { match: { 'extractedPattern.patternType': params.queryType }}
+              ]
+            }
+          },
+          size: params.limit || 10,
+          sort: [{ 'metadata.confidence': { order: 'desc' }}]
+        };
+
+        const nicheIntelligenceResults = await executeElasticsearchOperation('search', nicheSharedIndex, nicheIntelligenceQuery);
+
+        return {
+          success: true,
+          message: `🔍 Niche intelligence query for ${nicheId}`,
+          nicheId: nicheId,
+          queryType: params.queryType,
+          results: nicheIntelligenceResults?.hits?.hits || [],
+          totalNicheIntelligence: nicheIntelligenceResults?.hits?.total?.value || 0,
+          nicheSpecificLearning: true
+        };
+
+      case "create_private_entities":
+        // Create private entities with niche association
+        const nicheEntityData = {
+          nicheId: nicheId,
+          zone: 'private',
+          entityType: params.entityType,
+          data: {
+            ...params.entityData,
+            associatedNiche: nicheId,
+            nicheSpecific: true
+          },
+          tags: [...(params.tags || []), `niche:${nicheId}`],
+          aiAnalysis: params.aiAnalysis ? mockAIAnalysis('niche_entity_profile', { ...params.entityData, nicheId }) : null,
+          staffId,
+          timestamp: new Date().toISOString()
+        };
+
+        const nicheEntityResult = await executeElasticsearchOperation('createDocument', nichePrivateIndex, nicheEntityData, staffId);
+        
+        return {
+          success: true,
+          message: `✅ Created ${params.entityType} for niche ${nicheId}`,
+          nicheId: nicheId,
+          entityId: nicheEntityResult?._id,
+          zone: `staff-${staffId}/niche-${nicheId}`,
+          nicheSpecific: true
+        };
+
+      case "log_conversation":
+        // Log conversation with niche context
+        const nicheConversationData = {
+          nicheId: nicheId,
+          customerId: params.customerId,
+          messages: params.messages?.map(msg => ({
+            ...msg,
+            nicheContext: nicheId,
+            aiAnalysis: mockAIAnalysis('niche_message_analysis', { ...msg, nicheId })
+          })) || [],
+          outcome: params.outcome || 'ongoing',
+          dealContext: {
+            ...params.dealContext,
+            niche: nicheId,
+            product: nicheId
+          },
+          aiSummary: mockAIAnalysis('niche_conversation_summary', { messages: params.messages, nicheId }),
+          staffId,
+          timestamp: new Date().toISOString()
+        };
+
+        const nicheConversationResult = await executeElasticsearchOperation('createDocument', nicheConversationIndex, nicheConversationData, staffId);
+
+        return {
+          success: true,
+          message: `💬 Conversation logged for niche ${nicheId}`,
+          nicheId: nicheId,
+          conversationId: nicheConversationResult?._id,
+          messagesCount: params.messages?.length || 0,
+          nicheSpecificContext: true
+        };
+
+      case "get_niche_stats":
+        // Get comprehensive niche-specific statistics
+        const nicheStatsQuery = {
+          query: {
+            bool: {
+              must: [{ term: { nicheId: nicheId }}]
+            }
+          },
+          aggs: {
+            success_rate: { avg: { field: 'metadata.confidence' }},
+            total_patterns: { value_count: { field: 'extractedPattern.patternType' }},
+            active_marketers: { cardinality: { field: 'staffId' }}
+          }
+        };
+
+        const nicheStats = await executeElasticsearchOperation('search', nicheSharedIndex, nicheStatsQuery);
+
+        return {
+          success: true,
+          message: `📊 Niche statistics for ${nicheId}`,
+          nicheId: nicheId,
+          stats: {
+            totalIntelligence: nicheStats?.hits?.total?.value || 0,
+            averageSuccessRate: nicheStats?.aggregations?.success_rate?.value || 0,
+            totalPatterns: nicheStats?.aggregations?.total_patterns?.value || 0,
+            activeMarketers: nicheStats?.aggregations?.active_marketers?.value || 0
+          },
+          nichePerformance: 'calculated',
+          sharedLearning: true
+        };
+
+      default:
+        // For other tools, add niche context
+        return {
+          success: true,
+          message: `🧠 ${toolName} with niche context for ${nicheId}`,
+          nicheId: nicheId,
+          toolName: toolName,
+          staffId: staffId,
+          nicheSpecific: true,
+          params: params,
+          timestamp: new Date().toISOString()
+        };
+    }
+
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      tool: toolName,
+      nicheId: nicheId,
+      staffId: staffId,
+      timestamp: new Date().toISOString()
+    };
+  }
+}
+
+// Enhanced AI analysis with niche context
+function mockAIAnalysis(type: string, data: any) {
+  const timestamp = new Date().toISOString();
+  const nicheId = data.nicheId || 'general';
+  
+  switch (type) {
+    case 'niche_entity_profile':
+      return {
+        profileType: 'niche_customer',
+        nicheId: nicheId,
+        attributes: ['niche_specific', 'product_interested'],
+        confidence: 0.88,
+        nicheRelevance: 'high',
+        timestamp
+      };
+    case 'niche_message_analysis':
+      return {
+        sentiment: 'positive',
+        intent: 'product_inquiry',
+        nicheId: nicheId,
+        productInterest: 'high',
+        buyingStage: 'consideration',
+        confidence: 0.85,
+        timestamp
+      };
+    case 'niche_conversation_summary':
+      return {
+        conversationType: 'product_discussion',
+        nicheId: nicheId,
+        keyPoints: ['product_benefits', 'pricing_discussion'],
+        nextSteps: ['send_information', 'schedule_demo'],
+        closesProbability: 0.75,
+        timestamp
+      };
+    default:
+      return {
+        analysis: `${type}_with_niche_context`,
+        nicheId: nicheId,
+        confidence: 0.80,
+        timestamp
+      };
+  }
+}
+
+export { mockAIAnalysis as nicheMockAIAnalysis };
