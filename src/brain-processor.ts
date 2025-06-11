@@ -271,7 +271,7 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
       // ==========================================
       
       case "create_private_entities":
-        const privateIndex = `brain-private-${staffId}`;
+        const privateIndex = `brain-private-${staffId.toLowerCase()}`;
         const entityData = {
           zone: 'private',
           entityType: params.entityType,
@@ -292,7 +292,7 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
         };
 
       case "search_private_data":
-        const searchIndex = `brain-private-${staffId}`;
+        const searchIndex = `brain-private-${staffId.toLowerCase()}`;
         const searchQuery = {
           query: {
             bool: {
@@ -325,7 +325,7 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
         };
 
       case "update_customer_profile":
-        const updateIndex = `brain-private-${staffId}`;
+        const updateIndex = `brain-private-${staffId.toLowerCase()}`;
         const customerQuery = {
           query: {
             bool: {
@@ -373,7 +373,7 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
         }
 
       case "log_conversation":
-        const convIndex = `brain-conversations-${staffId}`;
+        const convIndex = `brain-conversations-${staffId.toLowerCase()}`;
         const conversationData = {
           zone: 'private',
           entityType: 'conversation',
@@ -421,7 +421,7 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
           query: { term: { '_id': params.conversationId } }
         };
         
-        const conversation = await executeElasticsearchOperation('search', `brain-conversations-${staffId}`, convSearchQuery);
+        const conversation = await executeElasticsearchOperation('search', `brain-conversations-${staffId.toLowerCase()}`, convSearchQuery);
         
         if (conversation?.hits?.hits?.length > 0) {
           const convData = conversation.hits.hits[0]._source;
@@ -1066,7 +1066,7 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
           }
         });
 
-        const profileResult = await executeElasticsearchOperation('createDocument', `brain-private-${staffId}`, closingProfile, staffId);
+        const profileResult = await executeElasticsearchOperation('createDocument', `brain-private-${staffId.toLowerCase()}`, closingProfile, staffId);
 
         return {
           success: true,
@@ -1094,7 +1094,7 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
           size: 1
         };
 
-        const customerProfile = await executeElasticsearchOperation('search', `brain-private-${staffId}`, closingCustomerQuery);
+        const customerProfile = await executeElasticsearchOperation('search', `brain-private-${staffId.toLowerCase()}`, closingCustomerQuery);
         const profileData = customerProfile?.hits?.hits?.[0]?._source;
 
         // Generate closing recommendations based on profile and conversation

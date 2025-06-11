@@ -70,10 +70,10 @@ async function executeElasticsearchOperation(operation: string, indexName: strin
 // Dynamic niche brain processor that separates learning by product
 export async function processNicheBrainTool(toolName: string, params: any, staffId: string, nicheId: string): Promise<any> {
   try {
-    // Create niche-specific indices for shared intelligence
-    const nicheSharedIndex = `brain-shared-intelligence-${nicheId}`;
-    const nichePrivateIndex = `brain-private-${staffId}-${nicheId}`;
-    const nicheConversationIndex = `brain-conversations-${staffId}-${nicheId}`;
+    // Create niche-specific indices for shared intelligence (LOWERCASE REQUIRED)
+    const nicheSharedIndex = `brain-shared-intelligence-${nicheId.toLowerCase()}`;
+    const nichePrivateIndex = `brain-private-${staffId.toLowerCase()}-${nicheId.toLowerCase()}`;
+    const nicheConversationIndex = `brain-conversations-${staffId.toLowerCase()}-${nicheId.toLowerCase()}`;
 
     switch (toolName) {
       
@@ -247,6 +247,9 @@ export async function processNicheBrainTool(toolName: string, params: any, staff
 
       case "create_private_entities":
         // Create private entities with niche association
+        console.log(`🔧 Creating entity for niche ${nicheId}, staff ${staffId}`);
+        console.log(`📊 Entity data:`, params.entityData);
+        
         const nicheEntityData = {
           nicheId: nicheId,
           zone: 'private',
@@ -262,16 +265,36 @@ export async function processNicheBrainTool(toolName: string, params: any, staff
           timestamp: new Date().toISOString()
         };
 
+        console.log(`🔗 Attempting to create document in index: ${nichePrivateIndex}`);
         const nicheEntityResult = await executeElasticsearchOperation('createDocument', nichePrivateIndex, nicheEntityData, staffId);
         
-        return {
-          success: true,
-          message: `✅ Created ${params.entityType} for niche ${nicheId}`,
-          nicheId: nicheId,
-          entityId: nicheEntityResult?._id,
-          zone: `staff-${staffId}/niche-${nicheId}`,
-          nicheSpecific: true
-        };
+        console.log(`📊 Elasticsearch result:`, nicheEntityResult);
+        
+        if (nicheEntityResult && nicheEntityResult._id) {
+          console.log(`✅ Successfully created entity with ID: ${nicheEntityResult._id}`);
+          return {
+            success: true,
+            message: `✅ Created ${params.entityType} for niche ${nicheId}`,
+            nicheId: nicheId,
+            entityId: nicheEntityResult._id,
+            zone: `staff-${staffId}/niche-${nicheId}`,
+            nicheSpecific: true,
+            elasticsearchResult: nicheEntityResult,
+            indexUsed: nichePrivateIndex
+          };
+        } else {
+          console.log(`❌ Failed to create entity - Elasticsearch returned null or no ID`);
+          return {
+            success: false,
+            message: `❌ Failed to create ${params.entityType} for niche ${nicheId}`,
+            nicheId: nicheId,
+            zone: `staff-${staffId}/niche-${nicheId}`,
+            nicheSpecific: true,
+            error: 'Elasticsearch operation failed',
+            elasticsearchResult: nicheEntityResult,
+            indexUsed: nichePrivateIndex
+          };
+        }
 
       case "log_conversation":
         // Log conversation with niche context
