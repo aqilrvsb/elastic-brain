@@ -559,7 +559,7 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
           objectionType: params.objectionType,
           closingApproach: closingResponse.approach,
           aiAnalysis: aiAnalysis,
-          responses: closingResponse.responses.map((response, index) => ({
+          responses: closingResponse.responses.map((response: string, index: number) => ({
             response: response,
             successProbability: 0.85 - (index * 0.05),
             approach: closingResponse.approach,
@@ -1289,7 +1289,7 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
 
         // Determine dominant personality type
         const dominantType = Object.entries(personalityScores)
-          .sort(([,a], [,b]) => b - a)[0][0];
+          .sort(([,a], [,b]) => (b as number) - (a as number))[0][0];
 
         const personalityProfile = {
           dominantType: dominantType,
