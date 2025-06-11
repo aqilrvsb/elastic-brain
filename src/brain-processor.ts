@@ -46,7 +46,6 @@ async function executeElasticsearchOperation(operation: string, indexName: strin
         break;
     }
 
-<<<<<<< HEAD
     console.log(`🔗 Elasticsearch ${operation} to ${url}`);
     console.log(`📊 Request body:`, body ? JSON.parse(body) : 'N/A');
 
@@ -63,18 +62,6 @@ async function executeElasticsearchOperation(operation: string, indexName: strin
     }
   } catch (error) {
     console.error(`💥 Elasticsearch ${operation} error:`, error.message);
-=======
-    const response = await fetch(url, { method, headers, body });
-    
-    if (response.ok) {
-      return await response.json();
-    } else {
-      console.error(`Elasticsearch ${operation} failed:`, response.status);
-      return null;
-    }
-  } catch (error) {
-    console.error(`Elasticsearch ${operation} error:`, error.message);
->>>>>>> 24c7bbeee30c0c470f07ecf1ee8fdbaed0e0ee8e
     return null;
   }
 }
