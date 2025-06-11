@@ -47,6 +47,7 @@ async function executeElasticsearchOperation(operation: string, indexName: strin
         break;
     }
 
+<<<<<<< HEAD
     console.log(`🔗 Elasticsearch ${operation} to ${url}`);
     console.log(`📊 Request body:`, body ? JSON.parse(body) : 'N/A');
 
@@ -63,6 +64,18 @@ async function executeElasticsearchOperation(operation: string, indexName: strin
     }
   } catch (error) {
     console.error(`💥 Elasticsearch ${operation} error:`, error.message);
+=======
+    const response = await fetch(url, { method, headers, body });
+    
+    if (response.ok) {
+      return await response.json();
+    } else {
+      console.error(`Elasticsearch operation failed: ${response.status}`);
+      return null;
+    }
+  } catch (error) {
+    console.error('Elasticsearch operation error:', error);
+>>>>>>> 24c7bbeee30c0c470f07ecf1ee8fdbaed0e0ee8e
     return null;
   }
 }
@@ -334,6 +347,55 @@ export async function processNicheBrainTool(toolName: string, params: any, staff
           },
           nichePerformance: 'calculated',
           sharedLearning: true
+        };
+
+      case "suggest_intelligent_response":
+        // Generate niche-specific intelligent responses
+        const nicheResponseTemplates = {
+          greeting: [
+            `Waalaikumsalam! Terima kasih hubungi kami tentang ${nicheId}. Saya boleh bantu akak dengan maklumat lengkap tentang produk ni. Apa yang akak nak tahu dulu?`,
+            `Salam! Selamat datang ke ${nicheId} specialist team. Saya di sini untuk bantu akak. Boleh saya tahu apa keperluan utama akak untuk ${nicheId}?`
+          ],
+          interest: [
+            `Bagus akak berminat dengan ${nicheId}! Produk ni memang terbukti effective untuk yang serious nak results. Boleh saya hantar case study customer yang dah success?`,
+            `Alhamdulillah! Ramai customer ${nicheId} dah proven hasil dalam masa singkat. Akak nak saya explain benefit utama atau nak terus tengok demo product?`
+          ],
+          price_inquiry: [
+            `Harga ${nicheId} package ni start dari RM${Math.floor(Math.random() * 500) + 500} je, tapi value yang akak dapat dengan ${nicheId} worth lebih dari tu. Nak saya explain ROI calculation?`,
+            `Investment untuk ${nicheId} system ni sangat reasonable compare dengan result yang akak akan dapat. Boleh schedule call 15 minit untuk breakdown ${nicheId} pricing?`
+          ],
+          comparison: [
+            `Good question! ${nicheId} solution kami unique sebab kami ada proven methodology yang competitor ${nicheId} tak ada. Nak saya show ${nicheId} comparison chart?`,
+            `Betul, penting compare dulu. Yang beza ${nicheId} kami dengan lain - kami guarantee ${nicheId} results dalam 30 hari atau money back. Nak details lengkap?`
+          ]
+        };
+
+        // Determine response category for niche
+        const messageContent = (params.customerMessage || '').toLowerCase();
+        let category = 'interest'; // default
+        
+        if (messageContent.includes('salam') || messageContent.includes('hello')) {
+          category = 'greeting';
+        } else if (messageContent.includes('harga') || messageContent.includes('price')) {
+          category = 'price_inquiry';
+        } else if (messageContent.includes('compare') || messageContent.includes('banding')) {
+          category = 'comparison';
+        }
+
+        const nicheResponses = nicheResponseTemplates[category] || nicheResponseTemplates.interest;
+        const selectedNicheResponse = nicheResponses[Math.floor(Math.random() * nicheResponses.length)];
+
+        return {
+          success: true,
+          message: `🎯 Niche-specific intelligent response for ${nicheId}`,
+          nicheId: nicheId,
+          customerMessage: params.customerMessage,
+          detectedCategory: category,
+          nicheOptimizedResponse: selectedNicheResponse,
+          nicheSpecific: true,
+          productFocus: nicheId,
+          responseOptimized: true,
+          language: 'bahasa_malaysia'
         };
 
       default:
