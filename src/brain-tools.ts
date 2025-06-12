@@ -621,6 +621,99 @@ export function getBrainToolsList() {
         },
         required: ["csvData"]
       }
+    },
+
+    // ==========================================
+    // DYNAMIC NICHE PROMPT INTELLIGENCE (NEW!)
+    // ==========================================
+    {
+      name: "get_niche_prompt_intelligence",
+      description: "Get intelligent prompt guidance based on learned patterns for any niche (VITAC, EXAMA, etc.)",
+      inputSchema: {
+        type: "object",
+        properties: {
+          customerMessage: {
+            type: "string",
+            description: "Customer's message that needs response"
+          },
+          niche: {
+            type: "string", 
+            description: "Product niche (VITAC, EXAMA, etc.)"
+          },
+          customerProfile: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              phone: { type: "string" },
+              industry: { type: "string" },
+              previousInteractions: { type: "number" }
+            },
+            description: "Customer profile information"
+          },
+          conversationStage: {
+            type: "string",
+            enum: ["initial_contact", "interest_building", "demo_request", "objection_handling", "closing", "follow_up"],
+            description: "Current stage of conversation"
+          },
+          previousMessages: {
+            type: "array",
+            items: { type: "string" },
+            description: "Previous messages in conversation for context"
+          }
+        },
+        required: ["customerMessage", "niche"]
+      }
+    },
+
+    // ==========================================
+    // DYNAMIC PROMPT ENHANCEMENT TOOL (NEW!)
+    // ==========================================
+    {
+      name: "enhance_sales_prompt",
+      description: "Enhance any sales prompt with dynamic niche intelligence based on learned conversation patterns",
+      inputSchema: {
+        type: "object",
+        properties: {
+          originalPrompt: {
+            type: "string",
+            description: "Your existing sales prompt/system message"
+          },
+          customerMessage: {
+            type: "string", 
+            description: "Current customer message to analyze"
+          },
+          niche: {
+            type: "string",
+            description: "Product niche (VITAC, EXAMA, any product)"
+          },
+          conversationStage: {
+            type: "string",
+            description: "Current conversation stage (Problem Identification, Present Solution, etc.)"
+          },
+          customerProfile: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              phone: { type: "string" },
+              previousInteractions: { type: "number" },
+              industry: { type: "string" }
+            },
+            description: "Customer information"
+          },
+          conversationHistory: {
+            type: "array",
+            items: { type: "string" },
+            description: "Previous messages in this conversation"
+          },
+          enhancementMode: {
+            type: "string",
+            enum: ["intelligence_injection", "context_enhancement", "full_guidance"],
+            default: "intelligence_injection",
+            description: "How to enhance the prompt"
+          }
+        },
+        required: ["originalPrompt", "customerMessage", "niche"]
+      }
     }
   ];
 }

@@ -1,6 +1,8 @@
 import { staffBrainManager, elasticsearchConfig } from './config.js';
 import { analyzeCustomerMessage, generateMalaysianStyleResponse } from './malaysian-language-style.js';
 import CSVConversationProcessor from './csv-conversation-processor.js';
+import DynamicNichePromptIntelligence from './dynamic-niche-prompt-intelligence.js';
+import { enhanceSalesPrompt } from './mcp-prompt-enhancement-tool.js';
 
 // Enhanced Elasticsearch operations for Ultimate Brain Tools
 async function executeElasticsearchOperation(operation: string, indexName: string, data: any = null, staffId: string = null) {
@@ -1405,8 +1407,84 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
         };
 
       // ==========================================
-      // CSV CONVERSATION IMPORT (NEW!)
+      // DYNAMIC NICHE PROMPT INTELLIGENCE (NEW!)
       // ==========================================
+      
+      case "get_niche_prompt_intelligence":
+        // Generate intelligent prompt guidance based on learned patterns (FULLY DYNAMIC)
+        try {
+          console.log(`🧠 Generating prompt intelligence for ${params.niche}`);
+          
+          if (!params.customerMessage || !params.niche) {
+            return {
+              success: false,
+              message: "Customer message and niche are required",
+              error: "Missing required parameters"
+            };
+          }
+
+          const promptIntelligence = new DynamicNichePromptIntelligence();
+          const intelligence = await promptIntelligence.generatePromptIntelligence({
+            customerMessage: params.customerMessage,
+            customerProfile: params.customerProfile,
+            niche: params.niche,
+            staffId: staffId,
+            conversationStage: params.conversationStage,
+            previousMessages: params.previousMessages
+          });
+
+          return {
+            success: true,
+            message: `🎯 Dynamic prompt intelligence generated for ${params.niche}`,
+            promptIntelligence: {
+              // Raw intelligence data (no hardcoded structure)
+              customerInsights: intelligence.customerInsights,
+              recommendedApproach: intelligence.recommendedApproach,
+              objectionAnticipation: intelligence.objectionAnticipation,
+              successPatterns: intelligence.successPatterns,
+              malaysianContext: intelligence.malaysianContext,
+              nextBestActions: intelligence.nextBestActions,
+              
+              // Dynamic intelligence that works with ANY prompt structure
+              intelligenceContext: `
+NICHE: ${params.niche}
+CUSTOMER INSIGHTS: ${intelligence.customerInsights}
+RECOMMENDED APPROACH: ${intelligence.recommendedApproach}
+SUCCESS PATTERNS: ${intelligence.successPatterns}
+OBJECTION ANTICIPATION: ${intelligence.objectionAnticipation}
+MALAYSIAN CONTEXT: ${intelligence.malaysianContext}
+NEXT ACTIONS: ${intelligence.nextBestActions.join(', ')}
+              `,
+              
+              // Raw data for any prompt system to use
+              dynamicContext: {
+                niche: params.niche,
+                customerIntent: intelligence.customerInsights,
+                approachStrategy: intelligence.recommendedApproach,
+                successFactors: intelligence.successPatterns,
+                anticipatedObjections: intelligence.objectionAnticipation,
+                culturalContext: intelligence.malaysianContext,
+                suggestedActions: intelligence.nextBestActions,
+                confidence: intelligence.confidence,
+                learningSource: intelligence.learningSource
+              }
+            },
+            confidence: intelligence.confidence,
+            learningSource: intelligence.learningSource,
+            niche: params.niche,
+            applicableStage: params.conversationStage || 'initial_contact',
+            dynamicGuidance: true,
+            noHardcodedStructure: true
+          };
+
+        } catch (error) {
+          console.error('Prompt intelligence generation failed:', error);
+          return {
+            success: false,
+            message: `Prompt intelligence generation failed: ${error.message}`,
+            error: error.message
+          };
+        }
       
       case "import_csv_conversations":
         // Process CSV conversation data and enhance all AI tools
@@ -1481,6 +1559,10 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
             ]
           };
         }
+
+      case "enhance_sales_prompt":
+        // Enhanced sales prompt with dynamic niche intelligence
+        return await enhanceSalesPrompt(params, staffId);
 
       // ==========================================
       // DEFAULT CASE FOR REMAINING TOOLS
