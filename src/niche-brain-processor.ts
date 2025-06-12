@@ -284,7 +284,14 @@ export async function processNicheBrainTool(toolName: string, params: any, staff
         
         const learnedObjectionResponses = await executeElasticsearchOperation('search', nicheSharedIndex, objectionQuery);
         
-        let objectionResponse = {
+        let objectionResponse: {
+          response: any;
+          approach: string;
+          confidence: number;
+          source: string;
+          patternId?: string;
+          willLearnFromOutcome?: boolean;
+        } = {
           response: null,
           approach: 'ai_generated',
           confidence: 0.75,
