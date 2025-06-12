@@ -537,3 +537,89 @@ export async function processNicheBrainTool(toolName: string, params: any, staff
     };
   }
 }
+
+// Malaysian language response generation for niche brain
+function generateNicheMalaysianResponse(context: any): any {
+  const { nicheId, customerMessage, learnedPatterns } = context;
+  
+  if (learnedPatterns && learnedPatterns.length > 0) {
+    // Use learned patterns with Malaysian adaptation
+    const bestPattern = learnedPatterns[0];
+    return {
+      response: adaptNichePatternToMalaysian(bestPattern.template, nicheId, customerMessage),
+      source: 'learned_niche_intelligence_malaysian',
+      confidence: bestPattern.successRate,
+      responseCategory: 'learned_niche_pattern',
+      patternId: bestPattern.id
+    };
+  } else {
+    // Generate fresh Malaysian response for niche
+    const intent = extractCustomerIntent(customerMessage);
+    return {
+      response: generateFreshNicheMalaysianResponse(nicheId, customerMessage, intent),
+      source: 'ai_niche_generation_malaysian',
+      confidence: 0.75,
+      responseCategory: mapIntentToResponseCategory(intent),
+      willLearnFromOutcome: true
+    };
+  }
+}
+
+// Adapt learned patterns to Malaysian language for specific niche
+function adaptNichePatternToMalaysian(pattern: string, nicheId: string, customerMessage: string): string {
+  const intent = extractCustomerIntent(customerMessage);
+  
+  switch (intent) {
+    case 'pricing_inquiry':
+      return `[Berdasarkan pattern success untuk ${nicheId}] ${pattern} - Specifically untuk ${nicheId}, ramai client tengok value yang immediate. Nak saya explain investment structure yang sesuai untuk situation awak?`;
+      
+    case 'information_request':
+      return `[Proven approach untuk ${nicheId}] ${pattern} - ${nicheId} ni memang powerful solution. Banyak company dah implement dengan results yang outstanding. Apa specific aspect ${nicheId} yang awak most interested?`;
+      
+    case 'demo_request':
+      return `[Successful demo strategy untuk ${nicheId}] ${pattern} - Demo ${nicheId} memang impressive sebab awak boleh tengok real-time capabilities. Best part adalah customization untuk specific industry needs awak.`;
+      
+    default:
+      return `[Strategy terbukti untuk ${nicheId}] ${pattern} - Dalam context ${nicheId}, approach yang personalised selalu give better results. Mari kita focus pada value proposition yang specific untuk keperluan awak.`;
+  }
+}
+
+// Generate fresh Malaysian responses for niche-specific context
+function generateFreshNicheMalaysianResponse(nicheId: string, customerMessage: string, intent: string): string {
+  const contextualResponse = {
+    'pricing_inquiry': `Terima kasih tanya about ${nicheId} investment! Untuk ${nicheId} specifically, kami structure pricing based on value yang awak akan achieve. Ramai client ${nicheId} tengok ROI dalam 2-3 bulan first implementation. Boleh saya tahu sikit about business scale awak supaya saya recommend package ${nicheId} yang most optimal?`,
+    
+    'information_request': `Great question about ${nicheId}! ${nicheId} ni designed specifically untuk address pain points yang common dalam industry. Kami dah perfect kan ${nicheId} features based on feedback dari 100+ clients. Yang unique pasal ${nicheId} adalah flexibility dia untuk adapt dengan different business models. Apa specific challenge yang awak hoping ${nicheId} boleh solve?`,
+    
+    'purchase_intent': `Alhamdulillah! Awak buat decision yang excellent dengan choose ${nicheId}. ${nicheId} track record dengan clients memang impressive - majority achieve significant improvements within first month implementation. Sekarang mari kita proceed dengan onboarding ${nicheId} yang proper. Saya akan guide step-by-step untuk ensure awak maximize ${nicheId} potential.`,
+    
+    'demo_request': `Perfect timing untuk ${nicheId} demo! ${nicheId} demonstration memang best way untuk awak experience capabilities firsthand. Saya boleh customize demo specifically show ${nicheId} features yang most relevant untuk industry awak. Usually 15-20 minit je, tapi awak akan get comprehensive understanding ${nicheId} power. Bila convenient slot untuk awak?`,
+    
+    'comparison_request': `Smart approach! Memang important compare ${nicheId} dengan alternatives yang available. ${nicheId} position dalam market quite unique - kami focus specifically pada delivering measurable results rather than just features. Competitor lain mostly provide generic solutions, tapi ${nicheId} customizable untuk specific requirements. Nak saya breakdown ${nicheId} key advantages yang will impact business awak?`,
+    
+    'general_inquiry': `Waalaikumsalam dan thank you for interest dalam ${nicheId}! ${nicheId} memang game-changing solution yang dah proven dengan banyak successful implementations. Yang best pasal ${nicheId} adalah comprehensive approach dia - bukan just tool, tapi complete system dengan ongoing support. Apa yang awak most curious about ${nicheId} capabilities?`
+  };
+  
+  return contextualResponse[intent] || contextualResponse['general_inquiry'];
+}
+
+// Enhanced objection handling for niche with Malaysian language
+function generateNicheMalaysianObjectionResponse(objectionData: any): string {
+  const { objectionType, nicheId, customerProfile, objectionText } = objectionData;
+  const industry = customerProfile?.industry || 'business';
+  const customerName = customerProfile?.name || 'awak';
+  
+  switch (objectionType) {
+    case 'price_concern':
+      return `Saya understand ${customerName} concern about ${nicheId} investment. Memang crucial untuk ${industry} company ensure every investment worth it. ${nicheId} pricing actually reflect comprehensive value - bukan just software, tapi complete ecosystem dengan support, training, dan updates. Client ${nicheId} yang dari ${industry} consistently report ROI yang exceed expectations. Nak saya show calculation specific untuk business size awak?`;
+      
+    case 'timing_concern':
+      return `Appreciate ${customerName} transparency about timing untuk ${nicheId}. Memang sometimes business priorities dan market conditions affect implementation schedule. Good news adalah ${nicheId} flexible untuk different rollout approaches. Ramai client start dengan pilot untuk specific department dulu. Boleh kita explore ${nicheId} implementation strategy yang align dengan current situation awak?`;
+      
+    case 'competition_concern':
+      return `Excellent approach ${customerName}! Memang kena evaluate ${nicheId} against other options thoroughly. ${nicheId} advantage kami dalam market adalah focus pada actual results delivery. While competitor lain mostly generic platforms, ${nicheId} specifically engineered untuk ${industry} requirements. Performance comparison shows ${nicheId} consistently outperform alternatives. Nak saya arrange detailed ${nicheId} vs competitor analysis?`;
+      
+    default:
+      return `Thank you ${customerName} for sharing concern about ${nicheId}. Feedback macam ni valuable untuk kami ensure ${nicheId} meet actual market needs. ${nicheId} developed based on extensive research dengan ${industry} professionals untuk address real challenges. Boleh awak elaborate specific aspect ${nicheId} yang awak concerned about? Confident kami boleh find solution yang work perfectly untuk situation awak.`;
+  }
+}
