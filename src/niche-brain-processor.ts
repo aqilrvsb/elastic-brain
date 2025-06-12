@@ -17,6 +17,26 @@ export interface DynamicNicheConfig {
   };
 }
 
+// AI Processing Functions (Mock implementations)
+function mockAIAnalysis(type: string, data: any) {
+  const timestamp = new Date().toISOString();
+  
+  switch (type) {
+    case 'niche_entity_profile':
+      return { 
+        nicheSpecific: true,
+        entityProfile: data,
+        nicheId: data.nicheId,
+        profileType: 'niche_customer', 
+        attributes: ['niche_specific', 'data_driven'], 
+        confidence: 0.89,
+        timestamp 
+      };
+    default:
+      return { type, data, timestamp };
+  }
+}
+
 // Elasticsearch operations for niche brain
 async function executeElasticsearchOperation(operation: string, indexName: string, data: any = null, staffId: string = null) {
   try {
@@ -246,26 +266,40 @@ export async function processNicheBrainTool(toolName: string, params: any, staff
         };
 
       case "create_private_entities":
-        // Create private entities with niche association
+        // Create private entities with niche association - FIXED VERSION
         console.log(`🔧 Creating entity for niche ${nicheId}, staff ${staffId}`);
+        console.log(`📊 Full params received:`, JSON.stringify(params, null, 2));
         console.log(`📊 Entity data:`, params.entityData);
+        console.log(`📊 Entity type:`, params.entityType);
+        
+        // CRITICAL FIX: Ensure we have valid entityData - provide fallback if missing
+        const validEntityData = params.entityData || {
+          name: `${params.entityType || 'entity'}_${Date.now()}`,
+          createdFor: nicheId,
+          generatedAt: new Date().toISOString(),
+          fallbackUsed: true
+        };
+        
+        console.log(`📊 Using entity data:`, validEntityData);
         
         const nicheEntityData = {
           nicheId: nicheId,
           zone: 'private',
-          entityType: params.entityType,
+          entityType: params.entityType || 'customer',
           data: {
-            ...params.entityData,
+            ...validEntityData,
             associatedNiche: nicheId,
             nicheSpecific: true
           },
           tags: [...(params.tags || []), `niche:${nicheId}`],
-          aiAnalysis: params.aiAnalysis ? mockAIAnalysis('niche_entity_profile', { ...params.entityData, nicheId }) : null,
+          aiAnalysis: (params.aiAnalysis !== false) ? mockAIAnalysis('niche_entity_profile', { ...validEntityData, nicheId }) : null,
           staffId,
           timestamp: new Date().toISOString()
         };
 
+        console.log(`🔗 Final entity data to store:`, JSON.stringify(nicheEntityData, null, 2));
         console.log(`🔗 Attempting to create document in index: ${nichePrivateIndex}`);
+        
         const nicheEntityResult = await executeElasticsearchOperation('createDocument', nichePrivateIndex, nicheEntityData, staffId);
         
         console.log(`📊 Elasticsearch result:`, nicheEntityResult);
@@ -274,25 +308,27 @@ export async function processNicheBrainTool(toolName: string, params: any, staff
           console.log(`✅ Successfully created entity with ID: ${nicheEntityResult._id}`);
           return {
             success: true,
-            message: `✅ Created ${params.entityType} for niche ${nicheId}`,
+            message: `✅ Created ${params.entityType || 'entity'} for niche ${nicheId}`,
             nicheId: nicheId,
             entityId: nicheEntityResult._id,
             zone: `staff-${staffId}/niche-${nicheId}`,
             nicheSpecific: true,
             elasticsearchResult: nicheEntityResult,
-            indexUsed: nichePrivateIndex
+            indexUsed: nichePrivateIndex,
+            entityData: validEntityData
           };
         } else {
           console.log(`❌ Failed to create entity - Elasticsearch returned null or no ID`);
           return {
             success: false,
-            message: `❌ Failed to create ${params.entityType} for niche ${nicheId}`,
+            message: `❌ Failed to create ${params.entityType || 'entity'} for niche ${nicheId}`,
             nicheId: nicheId,
             zone: `staff-${staffId}/niche-${nicheId}`,
             nicheSpecific: true,
             error: 'Elasticsearch operation failed',
             elasticsearchResult: nicheEntityResult,
-            indexUsed: nichePrivateIndex
+            indexUsed: nichePrivateIndex,
+            entityData: validEntityData
           };
         }
 
@@ -433,49 +469,3 @@ export async function processNicheBrainTool(toolName: string, params: any, staff
     };
   }
 }
-
-// Enhanced AI analysis with niche context
-function mockAIAnalysis(type: string, data: any) {
-  const timestamp = new Date().toISOString();
-  const nicheId = data.nicheId || 'general';
-  
-  switch (type) {
-    case 'niche_entity_profile':
-      return {
-        profileType: 'niche_customer',
-        nicheId: nicheId,
-        attributes: ['niche_specific', 'product_interested'],
-        confidence: 0.88,
-        nicheRelevance: 'high',
-        timestamp
-      };
-    case 'niche_message_analysis':
-      return {
-        sentiment: 'positive',
-        intent: 'product_inquiry',
-        nicheId: nicheId,
-        productInterest: 'high',
-        buyingStage: 'consideration',
-        confidence: 0.85,
-        timestamp
-      };
-    case 'niche_conversation_summary':
-      return {
-        conversationType: 'product_discussion',
-        nicheId: nicheId,
-        keyPoints: ['product_benefits', 'pricing_discussion'],
-        nextSteps: ['send_information', 'schedule_demo'],
-        closesProbability: 0.75,
-        timestamp
-      };
-    default:
-      return {
-        analysis: `${type}_with_niche_context`,
-        nicheId: nicheId,
-        confidence: 0.80,
-        timestamp
-      };
-  }
-}
-
-export { mockAIAnalysis as nicheMockAIAnalysis };
