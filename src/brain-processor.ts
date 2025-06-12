@@ -1,5 +1,6 @@
 import { staffBrainManager, elasticsearchConfig } from './config.js';
 import { analyzeCustomerMessage, generateMalaysianStyleResponse } from './malaysian-language-style.js';
+import CSVConversationProcessor from './csv-conversation-processor.js';
 
 // Enhanced Elasticsearch operations for Ultimate Brain Tools
 async function executeElasticsearchOperation(operation: string, indexName: string, data: any = null, staffId: string = null) {
@@ -1402,6 +1403,84 @@ export async function processBrainTool(toolName: string, params: any, staffId: s
           expectedImprovement: '40-60% better engagement',
           implementationReady: true
         };
+
+      // ==========================================
+      // CSV CONVERSATION IMPORT (NEW!)
+      // ==========================================
+      
+      case "import_csv_conversations":
+        // Process CSV conversation data and enhance all AI tools
+        try {
+          console.log(`🧠 CSV Import started by staff: ${staffId}`);
+          console.log(`📊 Processing ${params.csvData?.length || 0} conversations`);
+          
+          if (!params.csvData || !Array.isArray(params.csvData) || params.csvData.length === 0) {
+            return {
+              success: false,
+              message: "No CSV data provided or invalid format",
+              error: "csvData must be a non-empty array"
+            };
+          }
+
+          const processor = new CSVConversationProcessor();
+          const results = await processor.processCsvConversations(params.csvData);
+
+          if (results.success) {
+            return {
+              success: true,
+              message: `🎉 Successfully processed ${results.results.totalConversations} conversations and enhanced all AI tools`,
+              importResults: results.results,
+              aiEnhancements: results.aiEnhancements,
+              enhancedTools: [
+                "suggest_intelligent_response",
+                "get_ai_objection_responses", 
+                "analyze_conversation_intelligence",
+                "extract_sales_intelligence",
+                "query_shared_intelligence",
+                "predict_conversation_outcome",
+                "detect_buying_signals",
+                "optimize_timing_strategy",
+                "analyze_customer_personality",
+                "match_communication_style",
+                "And 25+ more tools!"
+              ],
+              nextSteps: [
+                "All AI tools now use learned patterns from your conversations",
+                "Malaysian language responses enhanced with real context",
+                "Objection handling improved with proven strategies",
+                "Test with suggest_intelligent_response to see improvements"
+              ],
+              malaysianLanguageEnhanced: true,
+              learningSource: "csv_import",
+              staffId: staffId
+            };
+          } else {
+            return {
+              success: false,
+              message: results.message,
+              error: results.error,
+              troubleshooting: [
+                "Check CSV data format matches expected structure",
+                "Ensure conversation column has USER: and BOT: prefixes",
+                "Verify niche column is not empty",
+                "Check Elasticsearch connection"
+              ]
+            };
+          }
+
+        } catch (error) {
+          console.error('CSV import failed:', error);
+          return {
+            success: false,
+            message: `CSV import failed: ${error.message}`,
+            error: error.message,
+            troubleshooting: [
+              "Check CSV data format",
+              "Verify Elasticsearch connection", 
+              "Ensure proper conversation structure"
+            ]
+          };
+        }
 
       // ==========================================
       // DEFAULT CASE FOR REMAINING TOOLS

@@ -580,6 +580,47 @@ export function getBrainToolsList() {
           format: { type: "string", enum: ["iso", "timestamp", "formatted"], default: "iso" }
         }
       }
+    },
+
+    // ==========================================
+    // CSV CONVERSATION IMPORT TOOL (NEW!)
+    // ==========================================
+    {
+      name: "import_csv_conversations",
+      description: "Import and learn from CSV conversation data to enhance all 35 AI tools",
+      inputSchema: {
+        type: "object",
+        properties: {
+          csvData: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id_staff: { type: "string", description: "Staff ID (e.g., RV-003, SCAQL-S06)" },
+                prospect_num: { type: "string", description: "Customer phone number" },
+                prospect_nama: { type: "string", description: "Customer name" },
+                stage: { type: "string", description: "Conversation stage" },
+                date_order: { type: "string", description: "Date of conversation" },
+                conversation: { type: "string", description: "Full conversation with USER: and BOT: prefixes" },
+                niche: { type: "string", description: "Product niche (VITAC, EXAMA, etc.)" }
+              },
+              required: ["id_staff", "prospect_nama", "conversation", "niche"]
+            },
+            description: "Array of conversation data from CSV"
+          },
+          targetNiche: {
+            type: "string",
+            description: "Focus on specific niche (optional, processes all niches if not specified)"
+          },
+          processingMode: {
+            type: "string",
+            enum: ["analysis_only", "full_import", "incremental"],
+            description: "Processing mode - analysis_only for testing, full_import for complete learning",
+            default: "full_import"
+          }
+        },
+        required: ["csvData"]
+      }
     }
   ];
 }
