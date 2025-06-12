@@ -22,12 +22,37 @@
 - **✅ Pattern-Based Intelligence** - Learns from successful conversations and outcomes
 - **✅ Privacy-Preserving Learning** - Anonymous pattern sharing for collective intelligence
 
+## 🇲🇾 **MALAYSIAN LANGUAGE STYLE (AI-INTELLIGENT, NOT HARDCODED)**
+
+### **✅ AI-GENERATED RESPONSES IN MALAYSIAN STYLE:**
+
+```javascript
+// AI analyzes customer message and generates Malaysian-style response
+const analysis = analyzeCustomerMessage("Berapa harga untuk package ni?");
+const response = generateMalaysianStyleResponse(analysis, context);
+
+// Example AI-generated responses (learning from patterns):
+"Saya understand awak interest dalam pricing untuk solution kami. Value yang awak dapat memang important factor. Boleh kita discuss details yang relevant untuk business scale awak?"
+
+"Bagus! Smart choice awak! Solution kami memang proven untuk businesses macam awak punya. Mari kita proceed dengan next steps?"
+
+"Saya faham concern awak. Ramai client faced similar concerns initially, tapi after seeing results, confidence level increased significantly. Boleh saya address specific concerns awak?"
+```
+
+### **🧠 KEY FEATURES - AI LEARNING + MALAYSIAN STYLE:**
+- **NOT HARDCODED**: All responses are AI-generated based on learned patterns
+- **MALAYSIAN LANGUAGE STYLE**: Uses Bahasa Malaysia with English technical terms
+- **CONTEXT-AWARE**: AI analyzes customer intent, urgency, emotion, business level
+- **LEARNING-ENABLED**: Each response improves future AI intelligence  
+- **NO INDONESIAN TERMS**: Pure Malaysian context and vocabulary
+- **CASUAL TONE**: Relatable style suited for Malaysian business culture
+
 ### **🇲🇾 MALAYSIAN LANGUAGE REQUIREMENTS**
-All AI responses now use:
+All AI responses follow these style guidelines:
 - **Bahasa Malaysia** as primary language
-- **Casual, relatable tone** suited for Malaysian audiences  
-- **English technical terms** where necessary
+- **English technical terms** where necessary (API, ROI, solution, etc.)
 - **NO Indonesian terms** - pure Malaysian context
+- **Casual, relatable tone** suited for Malaysian audiences
 - **Contextual adaptation** based on customer and product
 
 ## 🎯 **REVOLUTIONARY AI LEARNING ARCHITECTURE**

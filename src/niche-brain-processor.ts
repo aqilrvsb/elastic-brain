@@ -2,6 +2,7 @@
 // This version removes ALL hardcoded text and makes everything learnable
 
 import { elasticsearchConfig } from './config.js';
+import { analyzeCustomerMessage, generateMalaysianStyleResponse } from './malaysian-language-style.js';
 
 export interface DynamicNicheConfig {
   nicheId: string;
